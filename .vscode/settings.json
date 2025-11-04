@@ -1,0 +1,5 @@
+{
+    "dotnet.defaultSolution": "CoreBanking.sln",
+    "entityframework.project": "CoreBanking.Infrastructure",
+    "entityframework.startupProject": "CoreBanking.API"
+}

@@ -1,0 +1,43 @@
+ syntax = "proto3";
+
+    package corebanking;
+
+    message Money {
+    double amount = 1;
+    string currency = 2;
+    }
+
+    message Address {
+    string line1 = 1;
+    string line2 = 2;
+    string city = 3;
+    string state = 4;
+    string postal_code = 5;
+    string country = 6;
+    }
+
+    message ErrorDetail {
+    string code = 1;
+    string message = 2;
+    string target = 3;
+    repeated ErrorDetail details = 4;
+    }
+
+    message ApiResponse {
+    bool success = 1;
+    string message = 2;
+    repeated ErrorDetail errors = 3;
+    google.protobuf.Timestamp timestamp = 4;
+    }
+
+    // Enhanced account service with streaming
+    service EnhancedAccountService {
+    // Server streaming for real-time transactions
+    rpc StreamTransactions (StreamTransactionsRequest) returns (stream TransactionResponse);
+    
+    // Client streaming for batch operations
+    rpc BatchTransfer (stream TransferMoneyRequest) returns (BatchTransferResponse);
+    
+    // Bidirectional streaming for real-time trading
+    rpc LiveTrading (stream TradingOrder) returns (stream TradingExecution);
+    }

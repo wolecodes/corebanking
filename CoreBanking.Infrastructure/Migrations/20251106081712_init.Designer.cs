@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace CoreBanking.Infrastructure.Migrations
 {
     [DbContext(typeof(BankingDbContext))]
-    [Migration("20251102140555_InitializedNewMigration")]
-    partial class InitializedNewMigration
+    [Migration("20251106081712_init")]
+    partial class init
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -77,7 +77,7 @@ namespace CoreBanking.Infrastructure.Migrations
                             AccountNumber = "1000000001",
                             AccountType = "Checking",
                             CustomerId = new Guid("a1b2c3d4-1234-5678-9abc-123456789abc"),
-                            DateOpened = new DateTime(2025, 10, 13, 14, 5, 55, 324, DateTimeKind.Utc).AddTicks(3861),
+                            DateOpened = new DateTime(2025, 10, 17, 8, 17, 11, 346, DateTimeKind.Utc).AddTicks(6013),
                             IsActive = true,
                             IsDeleted = false
                         });
@@ -88,7 +88,15 @@ namespace CoreBanking.Infrastructure.Migrations
                     b.Property<Guid>("CustomerId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("Address")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
                     b.Property<DateTime>("DateCreated")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("DateOfBirth")
                         .HasColumnType("datetime2");
 
                     b.Property<DateTime?>("DeletedAt")
@@ -125,19 +133,24 @@ namespace CoreBanking.Infrastructure.Migrations
 
                     b.HasKey("CustomerId");
 
+                    b.HasIndex("Email")
+                        .IsUnique();
+
                     b.ToTable("Customers");
 
                     b.HasData(
                         new
                         {
                             CustomerId = new Guid("a1b2c3d4-1234-5678-9abc-123456789abc"),
-                            DateCreated = new DateTime(2025, 10, 3, 14, 5, 55, 324, DateTimeKind.Utc).AddTicks(3531),
+                            Address = "13,Oshinowo street abule osho",
+                            DateCreated = new DateTime(2025, 10, 7, 8, 17, 11, 346, DateTimeKind.Utc).AddTicks(5200),
+                            DateOfBirth = new DateTime(2025, 10, 7, 8, 17, 11, 346, DateTimeKind.Utc).AddTicks(5210),
                             Email = "alice.johnson@email.com",
                             FirstName = "Alice",
                             IsActive = true,
                             IsDeleted = false,
                             LastName = "Johnson",
-                            PhoneNumber = "555-0101"
+                            PhoneNumber = "08134570701"
                         });
                 });
 
@@ -182,6 +195,41 @@ namespace CoreBanking.Infrastructure.Migrations
                     b.ToTable("Transactions");
                 });
 
+            modelBuilder.Entity("CoreBanking.Infrastructure.Persistence.Outbox.OutboxMessage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Error")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTime>("OccurredOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("ProcessedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("RetryCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("OutboxMessages", (string)null);
+                });
+
             modelBuilder.Entity("CoreBanking.Core.Entities.Account", b =>
                 {
                     b.HasOne("CoreBanking.Core.Entities.Customer", "Customer")
@@ -198,14 +246,14 @@ namespace CoreBanking.Infrastructure.Migrations
                             b1.Property<decimal>("Amount")
                                 .HasPrecision(18, 2)
                                 .HasColumnType("decimal(18,2)")
-                                .HasColumnName("BalanceAmount");
+                                .HasColumnName("Amount");
 
                             b1.Property<string>("Currency")
                                 .IsRequired()
                                 .ValueGeneratedOnAdd()
                                 .HasMaxLength(3)
                                 .HasColumnType("nvarchar(3)")
-                                .HasDefaultValue("USD")
+                                .HasDefaultValue("NGN")
                                 .HasColumnName("Currency");
 
                             b1.HasKey("AccountId");

@@ -1,10 +1,11 @@
-
+using CoreBanking.Core.Common;
 using CoreBanking.Core.Entities;
 using CoreBanking.Core.Enums;
+using CoreBanking.Core.Events;
+using CoreBanking.Core.Interfaces;
 using CoreBanking.Core.ValueObjects;
-using Microsoft.EntityFrameworkCore;
-using CoreBanking.Core.Common;
 using CoreBanking.Infrastructure.Persistence.Outbox;
+using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
 
 namespace CoreBanking.Infrastructure.Data;
@@ -16,17 +17,121 @@ public class BankingDbContext : DbContext
     public DbSet<Account> Accounts => Set<Account>();
     public DbSet<Transaction> Transactions => Set<Transaction>();
     public DbSet<OutboxMessage> OutboxMessages { get; set; } = null!;
+    public DbSet<DomainEvent> DomainEvents { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        base.OnModelCreating(modelBuilder);
         modelBuilder.ApplyConfiguration(new OutboxMessageConfiguration());
+        base.OnModelCreating(modelBuilder);
 
 
-        // softdelete filter
+
+        modelBuilder.Ignore<DomainEvent>();
+        modelBuilder.Ignore<IDomainEvent>();
+
+        modelBuilder.Entity<Customer>(entity =>
+        {
+            entity.HasKey(c => c.CustomerId);
+            entity.Property(c => c.CustomerId)
+                .HasConversion(customerId => customerId.Value,
+                            value => CustomerId.Create(value));
+
+            entity.Property(c => c.FirstName).IsRequired().HasMaxLength(100);
+            entity.Property(c => c.LastName).IsRequired().HasMaxLength(100);
+            entity.Property(c => c.Email).IsRequired().HasMaxLength(255);
+            entity.Property(c => c.PhoneNumber).IsRequired().HasMaxLength(20);
+            entity.Property(c => c.Address).IsRequired().HasMaxLength(500);
+            entity.Property(c => c.DateOfBirth).IsRequired();
+            entity.HasIndex(c => c.Email).IsUnique();
+
+            // Customer has many Accounts
+            entity.HasMany(c => c.Accounts)
+                .WithOne(a => a.Customer)
+                .HasForeignKey(a => a.CustomerId);
+        });
+
+        // Account configuration
+        modelBuilder.Entity<Account>(entity =>
+        {
+            entity.HasKey(a => a.AccountId);
+            entity.Property(c => c.AccountId)
+                .HasConversion(AccountId => AccountId.Value,
+                            value => AccountId.Create(value));
+
+            // Configure AccountNumber as owned type (Value Object)
+            entity.Property(a => a.AccountNumber)
+                    .HasConversion(
+                     accountNumber => accountNumber.Value,
+                     value => AccountNumber.Create(value))
+                    .HasColumnName("AccountNumber")
+                    .HasMaxLength(10).IsRequired();
+
+
+            // Configure Money as owned type (Value Object)
+            entity.OwnsOne(a => a.Balance, money =>
+            {
+                money.Property(m => m.Amount)
+                    .HasColumnName("Amount")
+                    .HasPrecision(18, 2);
+                money.Property(m => m.Currency)
+                    .HasColumnName("Currency")
+                    .HasMaxLength(3)
+                    .HasDefaultValue("NGN");
+            });
+
+            entity.Property(a => a.AccountType)
+                .HasConversion<string>()
+                .IsRequired();
+
+            // Account has many Transactions
+            entity.HasMany(a => a.Transactions)
+                .WithOne(t => t.Account)
+                .HasForeignKey(t => t.AccountId);
+
+            // Ensure we don't accidentally load all transactions
+            entity.Navigation(a => a.Transactions).AutoInclude(false);
+        });
+
+        // Transaction configuration
+        modelBuilder.Entity<Transaction>(entity =>
+        {
+            entity.HasKey(t => t.TransactionId);
+            entity.Property(c => c.TransactionId)
+                .HasConversion(TransactionId => TransactionId.Value,
+                            value => TransactionId.Create(value));
+
+            // Configure Money as owned type
+            entity.OwnsOne(t => t.Amount, money =>
+            {
+                money.Property(m => m.Amount)
+                    .HasColumnName("Amount")
+                    .HasPrecision(18, 2);
+                money.Property(m => m.Currency)
+                    .HasColumnName("Currency")
+                    .HasMaxLength(3);
+            });
+
+            entity.Property(t => t.Type)
+                .HasConversion<string>()
+                .IsRequired();
+
+            entity.Property(t => t.Description).HasMaxLength(500);
+            entity.Property(t => t.Reference).HasMaxLength(50);
+            entity.Property(t => t.Timestamp).IsRequired();
+        });
+
+        // Global query filter in DbContext - Automatically Exclude Deleted Records
         modelBuilder.Entity<Customer>().HasQueryFilter(c => !c.IsDeleted);
         modelBuilder.Entity<Account>().HasQueryFilter(a => !a.IsDeleted);
+        modelBuilder.Entity<Transaction>().HasQueryFilter(t => !t.Account.IsDeleted);
 
+        // Account concurrency implementation
+        modelBuilder.Entity<Account>(entity =>
+        {
+            entity.Property(a => a.RowVersion)
+                .IsRowVersion()
+                .IsConcurrencyToken();
+        });
 
         // Seed the DB
         modelBuilder.Entity<Customer>().HasData(new
@@ -35,12 +140,16 @@ public class BankingDbContext : DbContext
             FirstName = "Alice",
             LastName = "Johnson",
             Email = "alice.johnson@email.com",
-            PhoneNumber = "555-0101",
+            PhoneNumber = "08134570701",
             DateCreated = DateTime.UtcNow.AddDays(-30),
             IsActive = true,
+            Address = "13,Oshinowo street abule osho",
+            DateOfBirth = DateTime.UtcNow.AddDays(-30),
             IsDeleted = false
         }
         );
+
+
 
         modelBuilder.Entity<Account>().HasData(new
         {
@@ -48,84 +157,12 @@ public class BankingDbContext : DbContext
             AccountNumber = AccountNumber.Create("1000000001"),
             AccountType = AccountType.Checking, // EF handles enum conversion
             CustomerId = CustomerId.Create(Guid.Parse("a1b2c3d4-1234-5678-9abc-123456789abc")),
-            BalanceAmount = 1500.00m,
             Currency = "NGN",
             DateOpened = DateTime.UtcNow.AddDays(-20),
             IsActive = true,
             IsDeleted = false
-        });
-
-
-        modelBuilder.Entity<Account>(entity =>
-   {
-       entity.Property(a => a.RowVersion)
-           .IsRowVersion()
-           .IsConcurrencyToken();
-   });
-
-
-        modelBuilder.Entity<Customer>(entity =>
-            {
-                entity.HasKey(c => c.CustomerId);
-                entity.Property(c => c.CustomerId).HasConversion(id => id.Value, value => CustomerId.Create(value));
-
-                // entity.Property(c => c.CustomerId).HasConversion(CustomerId => CustomerId, value => CustomerId.Create());
-                entity.Property(c => c.FirstName).IsRequired().HasMaxLength(100);
-                entity.Property(c => c.LastName).IsRequired().HasMaxLength(100);
-                entity.Property(c => c.Email).IsRequired().HasMaxLength(255);
-                entity.Property(c => c.PhoneNumber).HasMaxLength(20);
-
-
-
-                entity.HasMany(c => c.Accounts).WithOne(a => a.Customer).HasForeignKey(a => a.CustomerId);
-            });
-
-        modelBuilder.Entity<Account>(entity =>
-        {
-            entity.HasKey(a => a.AccountId);
-            entity.Property(a => a.AccountId).HasConversion(id => id.Value, value => AccountId.Create(value));
-
-            // entity.OwnsOne(a => a.AccountNumber, an =>
-            // {
-            //     an.Property(a => a.Value).HasColumnName("AccountNumber").IsRequired().HasMaxLength(10);
-            // });
-            entity.Property(a => a.AccountNumber)
-            .HasConversion(
-            accountNumber => accountNumber.Value,
-            value => AccountNumber.Create(value))
-            .HasColumnName("AccountNumber")
-            .HasMaxLength(10)
-            .IsRequired();
-
-            entity.OwnsOne(a => a.Balance, money =>
-          {
-              money.Property(m => m.Amount).HasColumnName("BalanceAmount").HasPrecision(18, 2);
-              money.Property(m => m.Currency).HasColumnName("Currency").HasMaxLength(3).HasDefaultValue("USD");
-          });
-
-            entity.Property(a => a.AccountType).HasConversion<string>().IsRequired();
-
-            entity.HasMany(a => a.Transactions).WithOne(t => t.Account).HasForeignKey(t => t.AccountId);
-            entity.Navigation(a => a.Transactions).AutoInclude(false);
-        });
-
-
-
-        modelBuilder.Entity<Transaction>(entity =>
-        {
-            entity.HasKey(t => t.TransactionId);
-            entity.Property(c => c.TransactionId).HasConversion(id => id.Value, value => TransactionId.Create(value));
-            entity.OwnsOne(t => t.Amount, money =>
-            {
-                money.Property(m => m.Amount).HasColumnName("Amount").HasPrecision(18, 2);
-                money.Property(m => m.Currency).HasColumnName("Currency").HasMaxLength(3);
-            });
-            entity.Property(t => t.Type).HasConversion<string>().IsRequired();
-            entity.Property(t => t.Description).HasMaxLength(500);
-            entity.Property(t => t.Reference).HasMaxLength(50);
-            entity.Property(t => t.Timestamp).IsRequired();
-        });
-
+        }
+        );
 
 
         modelBuilder.Entity<Account>().OwnsOne(a => a.Balance).HasData(
@@ -135,7 +172,8 @@ public class BankingDbContext : DbContext
                 Amount = 1500.00m,
                 Currency = "NGN"
             }
-        );
+      );
+
 
     }
     public async Task SaveChangesWithOutboxAsync(CancellationToken cancellationToken = default)

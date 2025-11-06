@@ -43,9 +43,18 @@ public class Program
 
         builder.WebHost.ConfigureKestrel(options =>
         {
-            options.ListenLocalhost(5037, o => { o.Protocols = HttpProtocols.Http1; });
+            // HTTP (for Swagger, REST, etc.)
+            options.ListenLocalhost(5037, o =>
+            {
+                o.Protocols = HttpProtocols.Http1;
+            });
 
-            options.ListenLocalhost(5038, o => { o.Protocols = HttpProtocols.Http2; });
+            // HTTPS (for gRPC, requires HTTP/2)
+            options.ListenLocalhost(7288, o =>
+            {
+                o.UseHttps(); // uses developer cert
+                o.Protocols = HttpProtocols.Http2;
+            });
         });
         // Register repositories
         builder.Services.AddScoped<ICustomerRepository, CustomerRepository>();

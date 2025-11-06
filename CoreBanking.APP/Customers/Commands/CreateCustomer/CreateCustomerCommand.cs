@@ -36,7 +36,9 @@ public class CreateCustomerCommandHandler : IRequestHandler<CreateCustomerComman
             firstName: request.FirstName,
             lastName: request.LastName,
             email: request.Email,
-            phoneNumber: request.Phone
+            phoneNumber: request.Phone,
+            address: request.Address,
+            dateOfBirth: request.DateOfBirth
         );
 
         // Add to repository

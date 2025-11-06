@@ -9,7 +9,7 @@ using Grpc.Core;
 using MediatR;  
 namespace CoreBanking.gRPC.Services;
 
- public class AccountGrpcService : AccountService.AccountServiceBase
+public class AccountGrpcService : AccountService.AccountServiceBase
     {
         private readonly IMediator _mediator;
         private readonly IMapper _mapper;

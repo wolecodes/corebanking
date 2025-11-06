@@ -7,9 +7,8 @@ using CoreBanking.APP.Accounts.Queries.GetTransactionHistory;
 using CoreBanking.Core.Entities;
 using CoreBanking.Core.Enums;
 using CoreBanking.Core.ValueObjects;
-namespace CoreBanking.APP.Common.Mappings;
 
-// CoreBanking.Application/Common/Mappings/AccountProfile.cs
+namespace CoreBanking.APP.Common.Mappings;
 
 
 public class AccountProfile : Profile

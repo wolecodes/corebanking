@@ -1,4 +1,4 @@
-﻿
+﻿using CoreBanking.Core.ValueObjects;
 using CoreBanking.APP.Accounts.Queries.GetAccountSummary;
 
 namespace CoreBanking.APP.Customers.Queries.GetCustomerDetails

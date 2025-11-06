@@ -10,10 +10,17 @@ using CoreBanking.APP.Common.Mappings;
 using FluentValidation;
 using CoreBanking.APP.Accounts.Commands.CreatedAccount;
 using Microsoft.OpenApi.Models;
+using CoreBanking.Core.Events;
 using System.Reflection;
-using CoreBanking.API.Middleware;
 using CoreBanking.API.Mappings;
+using CoreBanking.API.gRPC.Mappings;
 using CoreBanking.APP.Customers.Commands.CreateCustomer;
+using CoreBanking.APP.Common.Interfaces;
+using CoreBanking.gRPC.Services;
+using CoreBanking.API.Middleware; 
+using CoreBanking.APP.Accounts.EventHandlers;
+using CoreBanking.Infrastructure.Services;
+using Microsoft.AspNetCore.Server.Kestrel.Core;
 
 
 namespace CoreBanking.API;
@@ -31,8 +38,15 @@ public class Program
         builder.Services.AddEndpointsApiExplorer();
         builder.Services.AddSwaggerGen();
         builder.Services.AddDbContext<BankingDbContext>(options =>
-              options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+            options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+
+        builder.WebHost.ConfigureKestrel(options =>
+        {
+            options.ListenLocalhost(5037, o => { o.Protocols = HttpProtocols.Http1; });
+
+            options.ListenLocalhost(5038, o => { o.Protocols = HttpProtocols.Http2; });
+        });
         // Register repositories
         builder.Services.AddScoped<ICustomerRepository, CustomerRepository>();
         builder.Services.AddScoped<IAccountRepository, AccountRepository>();
@@ -40,6 +54,13 @@ public class Program
 
         // Register UnitOfWork
         builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
+        builder.Services.AddScoped<IDomainEventDispatcher, DomainEventDispatcher>();
+        builder.Services.AddTransient<INotificationHandler<AccountCreatedEvent>, AccountCreatedEventHandler>();
+        builder.Services.AddTransient<INotificationHandler<MoneyTransferedEvent>, MoneyTransferedEventHandler>();
+        builder.Services.AddTransient<INotificationHandler<InsufficientFundEvent>, InsufficientFundsEventHandler>();
+        builder.Services.AddTransient(typeof(IPipelineBehavior<,>), typeof(DomainEventsBehavior<,>));
+        builder.Services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
+        builder.Services.AddTransient(typeof(IPipelineBehavior<,>), typeof(LoggingBehaviour<,>));
 
         // builder.Services.AddAutoMapper(cfg => { }, typeof(AccountProfile).Assembly);
 
@@ -49,10 +70,6 @@ public class Program
         builder.Services.AddAutoMapper(cfg => { },
             typeof(AccountProfile).Assembly,
             typeof(RequestToCommandProfile).Assembly); // API layer mappings (Request -> Command)
-
-
-
-
 
 
         // Register MediatR with handlers and behaviors
@@ -70,25 +87,39 @@ public class Program
         // });
 
 
+        builder.Services.AddGrpc(options =>
+        {
+            options.EnableDetailedErrors = true;
+        });
+        builder.Services.AddGrpcReflection();
+
+        // Add MediatR with handlers and behaviors
+        builder.Services.AddMediatR(cfg =>
+       {
+           cfg.RegisterServicesFromAssembly(typeof(CreateAccountCommand).Assembly);
+
+           cfg.AddOpenBehavior(typeof(ValidationBehavior<,>));
+           cfg.AddOpenBehavior(typeof(LoggingBehaviour<,>));
+           cfg.AddOpenBehavior(typeof(DomainEventsBehavior<,>));
+
+           cfg.Lifetime = ServiceLifetime.Scoped;
+       });
+
+        // Add Validators and autoMapper
 
         builder.Services.AddValidatorsFromAssembly(typeof(CreateAccountCommandValidator).Assembly);
-        builder.Services.AddValidatorsFromAssembly(typeof(CreateCustomerValidator).Assembly);
+        builder.Services.AddAutoMapper(cfg => { }, typeof(AccountProfile).Assembly);
+        builder.Services.AddAutoMapper(cfg => { }, typeof(AccountGrpcProfile).Assembly);
 
-        // Add MediatR with behaviors
-        builder.Services.AddMediatR(cfg =>
-        {
-            cfg.RegisterServicesFromAssembly(typeof(CreateCustomerCommand).Assembly);
-            cfg.RegisterServicesFromAssembly(typeof(CreateAccountCommand).Assembly);
-            cfg.AddOpenBehavior(typeof(ValidationBehavior<,>));
-            cfg.AddOpenBehavior(typeof(LoggingBehaviour<,>));
+        // Register outbox services
+        builder.Services.AddScoped<IOutboxMessageProcessor, OutboxMessageProcessor>();
+        builder.Services.AddHostedService<OutboxBackgroundService>();
 
-            cfg.Lifetime = ServiceLifetime.Scoped;
-        });
-        // builder.Services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
-        // builder.Services.AddTransient(typeof(IPipelineBehavior<,>), typeof(LoggingBehaviour<,>));
+
+        builder.Services.AddControllers();
+        builder.Services.AddEndpointsApiExplorer();
 
         // Add Swagger/OpenAPI
-        builder.Services.AddEndpointsApiExplorer();
         builder.Services.AddSwaggerGen(c =>
         {
             c.SwaggerDoc("v1", new OpenApiInfo
@@ -120,32 +151,52 @@ public class Program
         });
         var app = builder.Build();
 
-        app.UseMiddleware<GlobalExceptionHandlerMiddleware>();
-        app.UseSwagger(options => options.OpenApiVersion = Microsoft.OpenApi.OpenApiSpecVersion.OpenApi2_0);
-        app.UseSwaggerUI(c =>
-        {
-            c.SwaggerEndpoint("/swagger/v1/swagger.json", "CoreBanking API v1");
-            c.RoutePrefix = "swagger"; // Access at /swagger
-            c.DocumentTitle = "CoreBanking API Documentation";
-            c.EnableDeepLinking();
-            c.DisplayOperationId();
-        });
+        // app.UseMiddleware<GlobalExceptionHandlerMiddleware>();
+        // app.UseSwagger(options => options.OpenApiVersion = Microsoft.OpenApi.OpenApiSpecVersion.OpenApi2_0);
+        // app.UseSwaggerUI(c =>
+        // {
+        //     c.SwaggerEndpoint("/swagger/v1/swagger.json", "CoreBanking API v1");
+        //     c.RoutePrefix = "swagger"; // Access at /swagger
+        //     c.DocumentTitle = "CoreBanking API Documentation";
+        //     c.EnableDeepLinking();
+        //     c.DisplayOperationId();
+        // });
 
-        // Configure the HTTP request pipeline.
+
+
         if (app.Environment.IsDevelopment())
         {
-            app.UseSwagger();
-            app.UseSwaggerUI();
+            app.UseSwagger(options => options.OpenApiVersion = Microsoft.OpenApi.OpenApiSpecVersion.OpenApi2_0);
+
+            // Enriched Swagger UI
+            app.UseSwaggerUI(c =>
+            {
+                c.SwaggerEndpoint("/swagger/v1/swagger.json", "CoreBanking API v1");
+                c.RoutePrefix = "swagger"; // Access at /swagger
+                c.DocumentTitle = "CoreBanking API Documentation";
+                c.EnableDeepLinking();
+                c.DisplayOperationId();
+            });
         }
 
         app.UseHttpsRedirection();
 
-        app.UseAuthorization();
+        app.UseMiddleware<GlobalExceptionHandlerMiddleware>();
 
+        app.UseAuthorization();
 
         app.MapControllers();
 
+        //Use grpc Endpoints
+        app.MapGrpcService<AccountGrpcService>();
+        app.MapGet("/", () => "CoreBanking API is running. Use /swagger for REST or a gRPC client for gRPC calls.");
+        if (app.Environment.IsDevelopment())
+        {
+            app.MapGrpcReflectionService();
+        }
+
         app.Run();
+
     }
 }
 

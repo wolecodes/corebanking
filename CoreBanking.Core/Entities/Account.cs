@@ -128,7 +128,7 @@ public class Account : AggregateRoot<AccountId>, ISoftDelete
 
         return account;
     }
-    public void Transfer(Money amount, Account destination, string reference, string description)
+    public Result Transfer(Money amount, Account destination, string reference, string description)
     {
         // Validate inputs
         if (destination == null)
@@ -158,32 +158,22 @@ public class Account : AggregateRoot<AccountId>, ISoftDelete
         if (AccountType == AccountType.Savings && _transactions.Count(t => t.Type == TransactionType.Withdrawal) >= 6)
             throw new InvalidOperationException("Savings account withdrawal limit reached");
 
-        // Execute the transfer as an atomic operation
-        // Withdraw from source
-        Balance -= amount;
-        var withdrawalTransaction = new Transaction(
-            accountId: AccountId,
-            type: TransactionType.TransferOut,
-            amount: amount,
-            description: $"Transfer to {destination.AccountNumber.Value}: {description}",
-            reference: reference
-        );
-        _transactions.Add(withdrawalTransaction);
+        var debitResult = Debit(amount, $"Transfer to {destination.AccountNumber}", reference);
+        if (!debitResult.IsSuccess)
+            return debitResult;
 
-        // Deposit to destination
-        destination.Balance += amount;
-        var depositTransaction = new Transaction(
-            accountId: destination.AccountId,
-            type: TransactionType.TransferIn,
-            amount: amount,
-            description: $"Transfer from {AccountNumber.Value}: {description}",
-            reference: reference
-        );
-        destination._transactions.Add(depositTransaction);
+        var creditResult = Credit(amount, $"Transfer from {AccountNumber}: {description}", reference);
+        if (!creditResult.IsSuccess)
+            return creditResult;
 
-        // Raise domain events for the transfer
+        // Raise money transferred event
         var transactionId = TransactionId.Create();
-        _domainEvents.Add(new MoneyTransferredEvent(transactionId, AccountNumber, destination.AccountNumber, amount, reference));
+        _domainEvents.Add(new MoneyTransferedEvent(
+            transactionId, AccountNumber,
+            destination.AccountNumber, amount, reference
+        ));
+
+        return Result.Success();
     }
 
     public Result Debit(Money amount, string description, string reference)

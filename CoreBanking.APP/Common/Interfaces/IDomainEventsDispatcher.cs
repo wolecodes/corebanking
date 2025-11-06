@@ -2,5 +2,5 @@ namespace CoreBanking.APP.Common.Interfaces;
 
 public interface IDomainEventDispatcher
 {
-  Task DispatchDomainEvents(CancellationToken cancellationToken = default);
+  Task DispatchDomainEventsAsync(CancellationToken cancellationToken = default);
 }

@@ -21,7 +21,7 @@ public class DomainEventsBehavior<TRequest, TResponse> : IPipelineBehavior<TRequ
   {
     _logger.LogInformation("Processing domain events for {RequestType}", typeof(TRequest).Name);
     var response = await next();
-    await _dispatcher.DispatchDomainEvents(cancellationToken);
+    await _dispatcher.DispatchDomainEventsAsync(cancellationToken);
     return response;
   }
 }

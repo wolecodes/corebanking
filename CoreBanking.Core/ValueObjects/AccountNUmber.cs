@@ -1,5 +1,3 @@
-
-
 namespace CoreBanking.Core.ValueObjects;
 
 public record AccountNumber

@@ -1,18 +1,19 @@
 using CoreBanking.Core.ValueObjects;
-namespace CoreBanking.Core.Events;
-
-public record InsufficientFundEvent : DomainEvent
+namespace CoreBanking.Core.Events
 {
-  public AccountNumber AccountNumber { get; }
-  public Money RequestedAmount { get; }
-  public Money CurrentBalance { get; }
-  public string Operation { get; }
-
-  public InsufficientFundEvent(AccountNumber accountNumber, Money requestedAmount, Money currentBalance, string operation)
+  public record InsufficientFundEvent : DomainEvent
   {
-    AccountNumber = accountNumber;
-    RequestedAmount = requestedAmount;
-    CurrentBalance = currentBalance;
-    Operation = operation;
+    public AccountNumber AccountNumber { get; }
+    public Money RequestedAmount { get; }
+    public Money CurrentBalance { get; }
+    public string Operation { get; }
+
+    public InsufficientFundEvent(AccountNumber accountNumber, Money requestedAmount, Money currentBalance, string operation)
+    {
+      AccountNumber = accountNumber;
+      RequestedAmount = requestedAmount;
+      CurrentBalance = currentBalance;
+      Operation = operation;
+    }
   }
 }

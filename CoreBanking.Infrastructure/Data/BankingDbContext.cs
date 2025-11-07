@@ -145,7 +145,9 @@ public class BankingDbContext : DbContext
             IsActive = true,
             Address = "13,Oshinowo street abule osho",
             DateOfBirth = DateTime.UtcNow.AddDays(-30),
-            IsDeleted = false
+            IsDeleted = false,
+            BVN = "12345678901",  // Add this
+            CreditScore = 700
         }
         );
 

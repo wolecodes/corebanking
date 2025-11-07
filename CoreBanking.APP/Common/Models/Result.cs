@@ -17,4 +17,9 @@ public record Result<T> : Result
     public T? Data { get; init; }
     public static Result<T> Success(T data) => new() { IsSuccess = true, Data = data };
     public static new Result<T> Failure(params string[] errors) => new() { IsSuccess = false, Errors = errors };
+
+    public T1 Match<T1>(Func<object, T1> success, Func<object, object> failure)
+    {
+        throw new NotImplementedException();
+    }
 }

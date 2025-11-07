@@ -16,40 +16,35 @@ namespace CoreBanking.Infrastructure.Repositories
             _context = context;
         }
 
-        public async Task<Customer?> GetByIdAsync(CustomerId customerId)
-        {
-
-            return await _context.Customers.Include(c => c.Accounts).FirstOrDefaultAsync(c => c.CustomerId == customerId);
-
-        }
-
-        public async Task<IEnumerable<Customer>> GetAllAsync()
+        public async Task<Customer?> GetByIdAsync(CustomerId customerId, CancellationToken cancellationToken = default)
         {
             return await _context.Customers
                 .Include(c => c.Accounts)
-                .ToListAsync();
+                .FirstOrDefaultAsync(c => c.CustomerId == customerId, cancellationToken);
         }
 
-        public async Task AddAsync(Customer customer)
+        public async Task<IEnumerable<Customer>> GetAllAsync(CancellationToken cancellationToken = default)
         {
-            await _context.Customers.AddAsync(customer);
+            return await _context.Customers
+                .Include(c => c.Accounts)
+                .ToListAsync(cancellationToken);
         }
 
-        public async Task UpdateAsync(Customer customer)
+        public async Task AddAsync(Customer customer, CancellationToken cancellationToken = default)
+        {
+            await _context.Customers.AddAsync(customer, cancellationToken);
+        }
+
+        public async Task UpdateAsync(Customer customer, CancellationToken cancellationToken = default)
         {
             _context.Customers.Update(customer);
             await Task.CompletedTask;
         }
 
-        public async Task<bool> ExistsAsync(CustomerId customerId)
+        public async Task<bool> ExistsAsync(CustomerId customerId, CancellationToken cancellationToken = default)
         {
             return await _context.Customers
-                .AnyAsync(c => c.CustomerId == customerId);
-        }
-
-        public async Task SaveChangesAsync()
-        {
-            await _context.SaveChangesAsync();
+                .AnyAsync(c => c.CustomerId == customerId, cancellationToken);
         }
     }
 }

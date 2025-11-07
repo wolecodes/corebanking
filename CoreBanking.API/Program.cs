@@ -4,6 +4,8 @@ using CoreBanking.Infrastructure.Data;
 using CoreBanking.Infrastructure.Repositories;
 using CoreBanking.APP.Common.Behaviors;
 using MediatR;
+using Polly.Extensions.Http;
+using Polly;
 using Microsoft.EntityFrameworkCore;
 using CoreBanking.APP.Accounts.Commands.CreateAccount;
 using CoreBanking.APP.Common.Mappings;
@@ -16,11 +18,18 @@ using CoreBanking.API.Mappings;
 using CoreBanking.API.gRPC.Mappings;
 using CoreBanking.APP.Customers.Commands.CreateCustomer;
 using CoreBanking.APP.Common.Interfaces;
-using CoreBanking.gRPC.Services;
-using CoreBanking.API.Middleware; 
+using CoreBanking.API.gRPC;
+using CoreBanking.API.Middleware;
 using CoreBanking.APP.Accounts.EventHandlers;
 using CoreBanking.Infrastructure.Services;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
+using CoreBanking.API.Hubs.EventHandlers;
+using CoreBanking.API.gRPC.Interceptors;
+using CoreBanking.API.Hubs;
+using CoreBanking.API.Hubs.Management;
+using CoreBanking.API.Services;
+using CoreBanking.Infrastructure.External.Resilience;
+using CoreBanking.API.Extensions;
 
 
 namespace CoreBanking.API;
@@ -99,8 +108,48 @@ public class Program
         builder.Services.AddGrpc(options =>
         {
             options.EnableDetailedErrors = true;
+            options.Interceptors.Add<ExceptionInterceptor>();
+            options.MaxReceiveMessageSize = 16 * 1024 * 1024; // 16MB
+            options.MaxSendMessageSize = 16 * 1024 * 1024; // 16MB
         });
         builder.Services.AddGrpcReflection();
+
+        // Add SignalR
+        builder.Services.AddSignalR(options =>
+        {
+            options.EnableDetailedErrors = builder.Environment.IsDevelopment();
+            options.KeepAliveInterval = TimeSpan.FromSeconds(15);
+            options.ClientTimeoutInterval = TimeSpan.FromSeconds(30);
+            options.MaximumReceiveMessageSize = 64 * 1024; // 64KB
+        })
+        .AddMessagePackProtocol(); // For smaller message sizes
+
+        // Register hub filters
+        builder.Services.AddSingleton<ErrorHandlingHubFilter>();
+
+        builder.Services.AddSingleton<ConnectionStateService>();
+
+        builder.Services.AddHostedService<TransactionBroadcastService>();
+
+        // Register external HTTP clients
+        builder.Services.AddExternalHttpClients(builder.Configuration);
+
+        // Add resilience services
+        builder.Services.AddSingleton<IResilientHttpClientService, ResilientHttpClientService>();
+
+        // Register Polly policies
+        builder.Services.AddSingleton(HttpPolicyExtensions
+            .HandleTransientHttpError()
+            .OrResult(msg => !msg.IsSuccessStatusCode)
+            .WaitAndRetryAsync(
+                retryCount: 3,
+                sleepDurationProvider: retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)),
+                onRetry: (outcome, timespan, retryCount, context) =>
+                {
+                    var logger = CoreBanking.Infrastructure.External.Resilience.ContextExtensions.GetLogger(context);
+                    logger?.LogWarning("Retry {RetryCount} after {Delay}ms",
+                        retryCount, timespan.TotalMilliseconds);
+                }));
 
         // Add MediatR with handlers and behaviors
         builder.Services.AddMediatR(cfg =>
@@ -123,6 +172,7 @@ public class Program
         // Register outbox services
         builder.Services.AddScoped<IOutboxMessageProcessor, OutboxMessageProcessor>();
         builder.Services.AddHostedService<OutboxBackgroundService>();
+        builder.Services.AddScoped<INotificationHandler<MoneyTransferedEvent>, RealTimeNotificationEventHandler>();
 
 
         builder.Services.AddControllers();
@@ -196,8 +246,17 @@ public class Program
 
         app.MapControllers();
 
-        //Use grpc Endpoints
+        app.MapHub<NotificationHub>("/hubs/notifications");
+        app.MapHub<TransactionHub>("/hubs/transactions");
+        app.MapHub<EnhancedNotificationHub>("/hubs/enhanced-notifications");
+
+        // Configure gRPC services
+
         app.MapGrpcService<AccountGrpcService>();
+        app.MapGrpcService<EnhancedAccountGrpcService>();
+        //app.MapGrpcService<TradingGrpcService>();
+
+        //Use grpc Endpoints
         app.MapGet("/", () => "CoreBanking API is running. Use /swagger for REST or a gRPC client for gRPC calls.");
         if (app.Environment.IsDevelopment())
         {

@@ -20,11 +20,14 @@ public class Customer : ISoftDelete
     public string Address { get; private set; }
     public DateTime DateOfBirth { get; private set; }
 
+    public string BVN { get; private set; }
+    public int CreditScore { get; private set; }
+
 
     private readonly List<Account> _accounts = new();
     public IReadOnlyCollection<Account> Accounts => _accounts.AsReadOnly();
 
-    public Customer(string firstName, string lastName, string email, string phoneNumber, string address, DateTime dateOfBirth)
+    public Customer(string firstName, string lastName, string email, string phoneNumber, string address, DateTime dateOfBirth, string bVN, int creditScore)
     {
         CustomerId = CustomerId.Create();
         FirstName = firstName ?? throw new ArgumentException(nameof(firstName));
@@ -35,6 +38,8 @@ public class Customer : ISoftDelete
         IsActive = true;
         Address = address;
         DateOfBirth = dateOfBirth;
+        CreditScore = creditScore;
+        BVN = bVN;
     }
 
     public void UpdateContactInfo(string email, string phoneNumber)

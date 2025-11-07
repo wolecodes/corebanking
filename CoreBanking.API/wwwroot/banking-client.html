@@ -1,0 +1,50 @@
+  <!DOCTYPE html>
+    <html>
+    <head>
+        <title>CoreBanking Real-time Client</title>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/6.0.1/signalr.min.js"></script>
+    </head>
+    <body>
+        <div id="connectionStatus">Disconnected</div>
+        <div id="notifications"></div>
+
+        <script>
+            const connection = new signalR.HubConnectionBuilder()
+                .withUrl("/hubs/enhanced-notifications?accountNumber=123456789")
+                .withAutomaticReconnect()
+                .build();
+
+            connection.on("ReceiveTransactionNotification", (notification) => {
+                console.log("New transaction:", notification);
+                addNotification(`Transaction: ${notification.type} - $${notification.amount}`);
+            });
+
+            connection.on("ReceiveBalanceUpdate", (update) => {
+                console.log("Balance update:", update);
+                addNotification(`Balance updated: $${update.newBalance}`);
+            });
+
+            connection.on("ReceiveSystemAlert", (alert) => {
+                console.log("System alert:", alert);
+                addNotification(`ALERT: ${alert.message}`, alert.severity);
+            });
+
+            connection.on("ConnectionStateChanged", (state) => {
+                document.getElementById('connectionStatus').textContent = 
+                    state.isConnected ? 'Connected' : 'Disconnected';
+                console.log('Connection state:', state);
+            });
+
+            connection.start()
+                .then(() => console.log('Connected to SignalR'))
+                .catch(err => console.error('Connection failed:', err));
+
+            function addNotification(message, type = 'info') {
+                const div = document.createElement('div');
+                div.className = `notification ${type}`;
+                div.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+                document.getElementById('notifications').prepend(div);
+            }
+        </script>
+    </body>
+    </html>

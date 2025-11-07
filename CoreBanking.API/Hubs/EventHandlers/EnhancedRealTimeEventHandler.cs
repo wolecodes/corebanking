@@ -1,6 +1,7 @@
 using CoreBanking.Core.Events;
 using CoreBanking.API.Hubs.Management;
 using CoreBanking.API.Hubs.Interfaces;
+using CoreBanking.API.Hubs.Models;
 using MediatR;
 using Microsoft.AspNetCore.SignalR;
 namespace CoreBanking.API.Hubs.EventHandlers;

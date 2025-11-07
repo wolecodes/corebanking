@@ -65,6 +65,6 @@ public class CustomersController : ControllerBase
         return CreatedAtAction(
             nameof(GetCustomer),
             new { customerId = result.Data },
-            ApiResponse<Guid>.CreateSuccess(result.Data!));
+            ApiResponse<CustomerId>.CreateSuccess(result.Data!));
     }
 }

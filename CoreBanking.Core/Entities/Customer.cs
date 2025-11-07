@@ -27,7 +27,7 @@ public class Customer : ISoftDelete
     private readonly List<Account> _accounts = new();
     public IReadOnlyCollection<Account> Accounts => _accounts.AsReadOnly();
 
-    public Customer(string firstName, string lastName, string email, string phoneNumber, string address, DateTime dateOfBirth, string bVN, int creditScore)
+    public Customer(string firstName, string lastName, string email, string phoneNumber,  DateTime dateOfBirth, string bVN, int creditScore)
     {
         CustomerId = CustomerId.Create();
         FirstName = firstName ?? throw new ArgumentException(nameof(firstName));
@@ -36,7 +36,6 @@ public class Customer : ISoftDelete
         PhoneNumber = phoneNumber ?? throw new ArgumentException(nameof(phoneNumber));
         DateCreated = DateTime.UtcNow;
         IsActive = true;
-        Address = address;
         DateOfBirth = dateOfBirth;
         CreditScore = creditScore;
         BVN = bVN;

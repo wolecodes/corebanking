@@ -58,7 +58,7 @@ public class CreateCustomerCommandHandler : IRequestHandler<CreateCustomerComman
       }
 
       // Step 3: Create customer entity
-      var customer = Customer.Create(
+      var customer = new Customer(
           request.FirstName,
           request.LastName,
           request.Email,

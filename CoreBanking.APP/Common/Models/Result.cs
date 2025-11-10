@@ -1,5 +1,3 @@
-
-
 namespace CoreBanking.APP.Common.Models;
 
 public record Result

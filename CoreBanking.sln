@@ -11,6 +11,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CoreBanking.Core", "CoreBan
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CoreBanking.Infrastructure", "CoreBanking.Infrastructure\CoreBanking.Infrastructure.csproj", "{BF21C52F-B57A-4CBB-83F3-F8CBF112E9C3}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CoreBanking.GrpcClient", "CoreBanking.GrpcClient\CoreBanking.GrpcClient.csproj", "{C9F0783C-079D-4266-990A-66C48C1D5BB9}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -69,8 +71,23 @@ Global
 		{BF21C52F-B57A-4CBB-83F3-F8CBF112E9C3}.Release|x64.Build.0 = Release|Any CPU
 		{BF21C52F-B57A-4CBB-83F3-F8CBF112E9C3}.Release|x86.ActiveCfg = Release|Any CPU
 		{BF21C52F-B57A-4CBB-83F3-F8CBF112E9C3}.Release|x86.Build.0 = Release|Any CPU
+		{C9F0783C-079D-4266-990A-66C48C1D5BB9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C9F0783C-079D-4266-990A-66C48C1D5BB9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C9F0783C-079D-4266-990A-66C48C1D5BB9}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{C9F0783C-079D-4266-990A-66C48C1D5BB9}.Debug|x64.Build.0 = Debug|Any CPU
+		{C9F0783C-079D-4266-990A-66C48C1D5BB9}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{C9F0783C-079D-4266-990A-66C48C1D5BB9}.Debug|x86.Build.0 = Debug|Any CPU
+		{C9F0783C-079D-4266-990A-66C48C1D5BB9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C9F0783C-079D-4266-990A-66C48C1D5BB9}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C9F0783C-079D-4266-990A-66C48C1D5BB9}.Release|x64.ActiveCfg = Release|Any CPU
+		{C9F0783C-079D-4266-990A-66C48C1D5BB9}.Release|x64.Build.0 = Release|Any CPU
+		{C9F0783C-079D-4266-990A-66C48C1D5BB9}.Release|x86.ActiveCfg = Release|Any CPU
+		{C9F0783C-079D-4266-990A-66C48C1D5BB9}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {C8B3317F-FA1B-4E54-81C5-BE04647A0B7F}
 	EndGlobalSection
 EndGlobal

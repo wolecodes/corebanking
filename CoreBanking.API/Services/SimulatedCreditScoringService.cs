@@ -1,14 +1,7 @@
+using CoreBanking.Core.Models;
+using CoreBanking.Core.Interfaces;
+
 namespace CoreBanking.API.Services;
-
-public interface ISimulatedCreditScoringService
-{
-  Task<SimulatedCreditScoreResponse> GetCreditScoreAsync(string bvn, CancellationToken cancellationToken = default);
-
-  Task<SimulatedCreditReportResponse> GetCreditReportAsync(string bvn, CancellationToken cancellationToken = default);
-
-  Task<SimulatedValidationResponse> ValidateCustomerAsync(SimulatedValidationRequest request, CancellationToken cancellationToken = default);
-  Task<SimulatedBVNResponse> ValidateBVNAsync(string bvn, CancellationToken cancellationToken = default);
-}
 
 public class SimulatedCreditScoringService : ISimulatedCreditScoringService
 {
@@ -183,52 +176,7 @@ public class SimulatedCreditScoringService : ISimulatedCreditScoringService
   }
 }
 
-public record SimulatedCreditScoreResponse
-{
-  public string BVN { get; init; } = string.Empty;
-  public int Score { get; init; }
-  public string Band { get; init; } = string.Empty;
-  public string[] Factors { get; init; } = Array.Empty<string>();
-  public DateTime GeneratedAt { get; init; }
-  public bool IsSuccess { get; init; }
-  public string ErrorMessage { get; init; } = string.Empty;
-}
 
-public record SimulatedCreditReportResponse
-{
-  public string BVN { get; init; } = string.Empty;
-  public decimal TotalDebt { get; init; }
-  public int ActiveAccounts { get; init; }
-  public int LatePayments { get; init; }
-  public decimal CreditUtilization { get; init; } // Percentage
-  public int OldestAccountAgeMonths { get; init; }
-  public string Status { get; init; } = string.Empty;
-  public DateTime ReportGeneratedAt { get; init; }
-  public bool IsSuccess { get; init; }
-  public string ErrorMessage { get; init; } = string.Empty;
-}
-
-public record SimulatedValidationRequest
-{
-  public string BVN { get; init; } = string.Empty;
-  public string FullName { get; init; } = string.Empty;
-  public DateTime DateOfBirth { get; init; }
-}
-
-public record SimulatedValidationResponse
-{
-  public bool IsValid { get; init; }
-  public string Reason { get; init; } = string.Empty;
-  public DateTime ValidatedAt { get; init; }
-}
-
-public record SimulatedBVNResponse
-{
-  public string BVN { get; init; } = string.Empty;
-  public bool IsValid { get; init; }
-  public DateTime ValidationDate { get; init; }
-  public string Message { get; init; } = string.Empty;
-}
 
 public record SimulatedCustomerProfile(
     int BaseScore,

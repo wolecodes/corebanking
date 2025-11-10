@@ -43,5 +43,19 @@ namespace CoreBanking.Infrastructure.Services
 
       domainEntities.ForEach(entity => entity.Entity.ClearDomainEvents());
     }
+
+    public async Task DispatchAsync(IDomainEvent domainEvent, CancellationToken cancellationToken = default)
+    {
+      _logger.LogInformation("Dispatching domain event: {EventType}", domainEvent.GetType().Name);
+      await _publisher.Publish(domainEvent, cancellationToken);
+    }
+
+    public async Task DispatchAsync(IEnumerable<IDomainEvent> domainEvents, CancellationToken cancellationToken = default)
+    {
+      foreach (var domainEvent in domainEvents)
+      {
+        await DispatchAsync(domainEvent, cancellationToken);
+      }
+    }
   }
 }

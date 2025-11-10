@@ -15,6 +15,7 @@ using CoreBanking.APP.Accounts.EventHandlers;
 using CoreBanking.APP.Common.Behaviors;
 using CoreBanking.APP.Common.Interfaces;
 using CoreBanking.APP.Common.Mappings;
+using CoreBanking.APP.Common.Models;
 using CoreBanking.APP.Customers.Commands.CreateCustomer;
 using CoreBanking.APP.External.HttpClients;
 using CoreBanking.APP.External.Interfaces;
@@ -23,6 +24,7 @@ using CoreBanking.Core.Interfaces;
 using CoreBanking.Infrastructure.Data;
 using CoreBanking.Infrastructure.External.Resilience;
 using CoreBanking.Infrastructure.Repositories;
+using CoreBanking.Infrastructure.ServiceBus;
 using CoreBanking.Infrastructure.Services;
 using FluentValidation;
 using MediatR;
@@ -36,7 +38,7 @@ using Polly.Extensions.Http;
 namespace CoreBanking.API;
 
 public class Program
-{ 
+{
     public static void Main(string[] args)
     {
         var builder = WebApplication.CreateBuilder(args);
@@ -87,6 +89,26 @@ public class Program
         builder.Services.AddValidatorsFromAssembly(typeof(CreateAccountCommandValidator).Assembly);
         builder.Services.AddAutoMapper(cfg => { }, typeof(AccountProfile).Assembly);
         builder.Services.AddAutoMapper(cfg => { }, typeof(AccountGrpcProfile).Assembly);
+
+        // Add resilience options
+        builder.Services.Configure<ResilenceOptions>(builder.Configuration.GetSection("Resilience"));
+
+        // Add advanced Polly policies
+        builder.Services.AddSingleton<AdvancedPollyPolicies>();
+        // Add simulated external services
+        builder.Services.AddSingleton<ISimulatedCreditScoringService, SimulatedCreditScoringService>();
+
+
+        // Add Azure Service Bus (simulated for now - will configure properly in subscequent class)
+        // builder.Services.AddSingleton<IServiceBusSender>(provider =>
+        // {
+        //     var logger = provider.GetRequiredService<ILogger<ServiceBusSender>>();
+        //     // For today, we'll use a mock. Tomorrow we'll add real Azure Service Bus connection
+        //     return new MockServiceBusSender(logger);
+        // });
+
+        builder.Services.AddSingleton<IEventPublisher, ServiceBusEventPublisher>();
+        builder.Services.AddScoped<IDomainEventDispatcher, ServiceBusEventDispatcher>();
 
         // Outbox
         builder.Services.AddScoped<IOutboxMessageProcessor, OutboxMessageProcessor>();

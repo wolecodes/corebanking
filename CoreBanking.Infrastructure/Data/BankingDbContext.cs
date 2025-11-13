@@ -161,10 +161,15 @@ public class BankingDbContext : DbContext
             AccountType = AccountType.Checking,
             CustomerId = CustomerId.Create(Guid.Parse("a1b2c3d4-1234-5678-9abc-123456789abc")),
             Currency = "NGN",
+
             // Also use a static date for DateOpened
             DateOpened = new DateTime(2024, 10, 10, 0, 0, 0, DateTimeKind.Utc),
             IsActive = true,
-            IsDeleted = false
+            IsDeleted = false,
+            IsInterestBearing = false,
+            IsArchived = false,
+            LastActivityDate = new DateTime(2025, 11, 11, 0, 0, 0, DateTimeKind.Utc),
+            Status = "Active"
         });
 
 

@@ -31,6 +31,12 @@ using Microsoft.Extensions.Options;
 using Microsoft.OpenApi.Models;
 using Polly;
 using Polly.Extensions.Http;
+using CoreBanking.Application.BackgroundJobs;
+using CoreBanking.APP.BackgroundJobs;
+using Hangfire;
+using CoreBanking.Infrastructure.BackgroundJobs;
+using CoreBanking.API.Extensions;
+using Hangfire.Storage;
 
 namespace CoreBanking.API
 {
@@ -55,6 +61,12 @@ namespace CoreBanking.API
             builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
             builder.Services.AddScoped<IDomainEventDispatcher, DomainEventDispatcher>();
             builder.Services.AddSingleton<IEventPublisher, ServiceBusEventPublisher>();
+            builder.Services.AddScoped<IMonitoringApi>(provider =>
+            {
+               
+        
+                return JobStorage.Current.GetMonitoringApi();
+            });
 
             // =====================================================================
             // EXTERNAL SERVICES + RESILIENCE
@@ -170,7 +182,7 @@ namespace CoreBanking.API
                     sleepDurationProvider: retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)),
                     onRetry: (outcome, timespan, retryCount, context) =>
                     {
-                        var logger = context.GetLogger();
+                        var logger = CoreBanking.API.Extensions.PollyContextExtensions.GetLogger(context);
                         logger?.LogWarning("Retry {RetryCount} after {Delay}ms", retryCount, timespan.TotalMilliseconds);
                     }));
 
@@ -196,6 +208,23 @@ namespace CoreBanking.API
                 cfg.AddOpenBehavior(typeof(LoggingBehaviour<,>));
                 cfg.AddOpenBehavior(typeof(DomainEventsBehavior<,>));
             });
+
+            // Hangfire Configuration
+            builder.Services.Configure<HangfireConfiguration>(builder.Configuration.GetSection("Hangfire"));
+            builder.Services.AddHangfireServices(builder.Configuration);
+
+            builder.Services.AddSingleton<LogJobFilter>();
+            builder.Services.AddHangfire(config => config
+                .UseSqlServerStorage(builder.Configuration.GetConnectionString("HangfireConnection")));
+            builder.Services.AddHangfireServer();
+
+            // Background Job Services
+            builder.Services.AddScoped<IDailyStatementService, DailyStatementService>();
+            builder.Services.AddScoped<IInterestCalculationService, InterestCalculationService>();
+            builder.Services.AddScoped<IAccountMaintenanceService, AccountMaintenanceService>();
+            builder.Services.AddScoped<IFailedJobHandler, FailedJobHandler>();
+            builder.Services.AddScoped<IJobInitializationService, JobInitializationService>();
+            builder.Services.AddScoped<IJobMonitoringService, JobMonitoringService>();
 
             // =====================================================================
             // CONTROLLERS + SWAGGER
@@ -246,11 +275,29 @@ namespace CoreBanking.API
 
                 app.MapGrpcReflectionService();
             }
+            var logger = app.Services.GetRequiredService<ILogger<Program>>();
+            using (var scope = app.Services.CreateScope())
+            {
+                var filter = scope.ServiceProvider.GetRequiredService<LogJobFilter>();
+                GlobalJobFilters.Filters.Add(filter);
+
+                logger.LogInformation("LogJobFilter registered globally");
+            }
+            // Hangfire Dashboard (secured)
+            app.UseHangfireDashboardWithAuth();
+
+            // Initialize jobs on startup
+            using (var scope = app.Services.CreateScope())
+            {
+                var jobInitialization = scope.ServiceProvider.GetRequiredService<IJobInitializationService>();
+                await jobInitialization.InitializeRecurringJobsAsync();
+                await jobInitialization.RegisterOneTimeJobsAsync();
+            }
 
             // Ensure mock-safe Service Bus setup
             using (var scope = app.Services.CreateScope())
             {
-                var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+                var logger1 = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
                 var admin = scope.ServiceProvider.GetRequiredService<ServiceBusAdministration>();
 
                 try

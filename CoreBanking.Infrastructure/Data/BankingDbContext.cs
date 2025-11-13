@@ -142,6 +142,7 @@ public class BankingDbContext : DbContext
             LastName = "Johnson",
             Email = "alice.johnson@email.com",
             PhoneNumber = "555-0101",
+            Address = "123 Main Street, Lagos, Nigeria",
             BVN = "20000000009",
             CreditScore = 40,
             // Use static, fixed dates instead of DateTime.UtcNow.AddX

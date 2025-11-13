@@ -19,6 +19,10 @@ public class Account : AggregateRoot<AccountId>, ISoftDelete
     public bool IsDeleted { get; private set; }
     public DateTime? DeletedAt { get; private set; }
     public string? DeletedBy { get; private set; }
+    public DateTime LastActivityDate { get; private set; } = DateTime.UtcNow;
+    public string Status { get; private set; } = "Active"; // Active, Inactive, Closed, Suspended
+    public bool IsInterestBearing { get; private set; } = true;
+    public bool IsArchived { get; private set; } = false;
 
     private readonly List<DomainEvent> _domainEvents = new();
     public IReadOnlyCollection<DomainEvent> DomainEvents => _domainEvents.AsReadOnly();
@@ -285,5 +289,32 @@ public class Account : AggregateRoot<AccountId>, ISoftDelete
             throw new InvalidOperationException("Cannot update balance for inactive account.");
 
         Balance = newBalance;
+    }
+
+
+    // Methods for maintenance
+    public void MarkAsClosed()
+    {
+        Status = "Closed";
+        LastActivityDate = DateTime.UtcNow;
+    }
+
+    public void MarkAsArchived()
+    {
+        IsArchived = true;
+    }
+
+    public void UpdateStatusBasedOnRules()
+    {
+        // Implement your business rules for status updates
+        if (LastActivityDate < DateTime.UtcNow.AddYears(-1) && Status == "Active")
+        {
+            Status = "Inactive";
+        }
+    }
+
+    public void UpdateLastActivityDate()
+    {
+        LastActivityDate = DateTime.UtcNow;
     }
 }

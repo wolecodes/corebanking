@@ -16,6 +16,7 @@ public class Transaction
     public bool IsDeleted { get; private set; }
     public DateTime? DeletedAt { get; private set; }
     public string? DeletedBy { get; private set; }
+    public bool IsArchived { get; private set; } = false;
 
 
     private Transaction() { }
@@ -29,8 +30,19 @@ public class Transaction
         Timestamp = DateTime.UtcNow;
         Reference = string.IsNullOrEmpty(reference) ? GenerateReference() : reference;
     }
+    public static Transaction CreateInterestCredit(AccountId accountId, decimal interestAmount, string description)
+    {
+        if (interestAmount <= 0)
+            throw new ArgumentException("Interest amount must be positive.", nameof(interestAmount));
+        var amount = new Money(interestAmount);
+        return new Transaction(accountId, null, TransactionType.Interest, amount, description);
+    }
     private string GenerateReference()
     {
         return $"{Timestamp:yyyMMddHHmmss}--{TransactionId.ToString().Substring(0, 8)}";
+    }
+    public void MarkAsArchived()
+    {
+        IsArchived = true;
     }
 }

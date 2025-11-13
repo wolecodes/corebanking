@@ -157,14 +157,14 @@ public class BankingDbContext : DbContext
         {
             AccountId = AccountId.Create(Guid.Parse("c3d4e5f6-3456-7890-cde1-345678901cde")),
             AccountNumber = AccountNumber.Create("1000000001"),
-            AccountType = AccountType.Checking, // EF handles enum conversion
+            AccountType = AccountType.Checking,
             CustomerId = CustomerId.Create(Guid.Parse("a1b2c3d4-1234-5678-9abc-123456789abc")),
             Currency = "NGN",
-            DateOpened = DateTime.UtcNow.AddDays(-20),
+            // Also use a static date for DateOpened
+            DateOpened = new DateTime(2024, 10, 10, 0, 0, 0, DateTimeKind.Utc),
             IsActive = true,
             IsDeleted = false
-        }
-        );
+        });
 
 
         modelBuilder.Entity<Account>().OwnsOne(a => a.Balance).HasData(

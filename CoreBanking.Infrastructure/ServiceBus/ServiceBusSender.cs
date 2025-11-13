@@ -4,12 +4,12 @@ using Microsoft.Extensions.Logging;
 
 namespace CoreBanking.Infrastructure.ServiceBus;
 
-public class ServiceBusSender : IServiceBusSender, IAsyncDisposable
+public class BankingServiceBusSender : IBankingServiceBusSender, IAsyncDisposable
 {
   private readonly ServiceBusClient _client;
-  private readonly ILogger<ServiceBusSender> _logger;
+  private readonly ILogger<BankingServiceBusSender> _logger;
 
-  public ServiceBusSender(string connectionString, ILogger<ServiceBusSender> logger)
+  public BankingServiceBusSender(string connectionString, ILogger<BankingServiceBusSender> logger)
   {
     _client = new ServiceBusClient(connectionString);
     _logger = logger;
@@ -58,5 +58,14 @@ public class ServiceBusSender : IServiceBusSender, IAsyncDisposable
   public Task SendMessageAsync(string queueOrTopicName, string messageBody, IDictionary<string, object> properties = null, CancellationToken cancellationToken = default)
   {
     throw new NotImplementedException();
+  }
+
+  public async Task SendMessageAsync(string queueOrTopicName, ServiceBusMessage message, CancellationToken cancellationToken = default)
+  {
+    await using var sender = _client.CreateSender(queueOrTopicName);
+    await sender.SendMessageAsync(message, cancellationToken);
+
+    _logger.LogDebug("ServiceBusMessage sent to {Destination} with ID {MessageId}",
+        queueOrTopicName, message.MessageId);
   }
 }

@@ -4,7 +4,6 @@ using Microsoft.Extensions.Logging;
 using System.Text.Json;
 namespace CoreBanking.Infrastructure.Services;
 
-
 public class ServiceBusEventDispatcher : IDomainEventDispatcher
 {
   private readonly IEventPublisher _eventPublisher;
@@ -59,15 +58,16 @@ public class ServiceBusEventDispatcher : IDomainEventDispatcher
     _logger.LogInformation("Dispatched {EventCount} domain events", eventsList.Count);
   }
 
-  public IReadOnlyList<IDomainEvent> GetPublishedEvents() => _publishedEvents.AsReadOnly();
-  public void ClearPublishedEvents() => _publishedEvents.Clear();
-
-  public async Task DispatchDomainEventsAsync(CancellationToken cancellationToken = default)
+  public async Task DispatchDomainEventsAsync(CancellationToken cancellationToken)
   {
-    // Implement domain event dispatching logic here
-    // This method should collect and dispatch all pending domain events
-    await Task.CompletedTask;
+    // This method seems to be from your original interface - implement if needed
+    // If you don't need it, you can remove it from the interface
+    throw new NotImplementedException();
   }
+
+  public IReadOnlyList<IDomainEvent> GetPublishedEvents() => _publishedEvents.AsReadOnly();
+
+  public void ClearPublishedEvents() => _publishedEvents.Clear();
 
   private async Task StoreFailedEventAsync(IDomainEvent domainEvent, Exception exception)
   {

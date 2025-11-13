@@ -1,4 +1,4 @@
-﻿
+﻿using CoreBanking.Core.ValueObjects;
 
 namespace CoreBanking.APP.Customers.Queries.GetCustomers;
 

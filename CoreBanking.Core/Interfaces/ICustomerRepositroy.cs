@@ -1,4 +1,5 @@
 using System;
+using CoreBanking.Core.ValueObjects;
 using CoreBanking.Core.Entities;
 
 namespace CoreBanking.Core.Interfaces;

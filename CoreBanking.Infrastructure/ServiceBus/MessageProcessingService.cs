@@ -1,77 +1,90 @@
-namespace CoreBanking.Infrastructure.ServiceBus;
+using CoreBanking.Infrastructure.ServiceBus.Handlers;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 
-public class MessageProcessingService : BackgroundService
+namespace CoreBanking.Infrastructure.ServiceBus
 {
-  private readonly IServiceProvider _serviceProvider;
-  private readonly ILogger<MessageProcessingService> _logger;
-  private readonly List<IAsyncDisposable> _processors = new();
-
-  public MessageProcessingService(IServiceProvider serviceProvider, ILogger<MessageProcessingService> logger)
+  public class MessageProcessingService : BackgroundService
   {
-    _serviceProvider = serviceProvider;
-    _logger = logger;
-  }
+    private readonly IServiceProvider _serviceProvider;
+    private readonly ILogger<MessageProcessingService> _logger;
+    private readonly List<IAsyncDisposable> _processors = new();
 
-  protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-  {
-    _logger.LogInformation("Starting message processing service");
-
-    // Start all message handlers
-    await StartCustomerEventHandlerAsync(stoppingToken);
-    await StartTransactionEventHandlerAsync(stoppingToken);
-    await StartAccountEventHandlerAsync(stoppingToken);
-
-    _logger.LogInformation("All message handlers started");
-
-    // Keep the service running until stopped
-    while (!stoppingToken.IsCancellationRequested)
+    public MessageProcessingService(IServiceProvider serviceProvider, ILogger<MessageProcessingService> logger)
     {
-      await Task.Delay(TimeSpan.FromSeconds(30), stoppingToken);
+      _serviceProvider = serviceProvider;
+      _logger = logger;
     }
 
-    _logger.LogInformation("Stopping message processing service");
-  }
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+      _logger.LogInformation("Starting message processing service");
 
-  private async Task StartCustomerEventHandlerAsync(CancellationToken stoppingToken)
-  {
-    using var scope = _serviceProvider.CreateScope();
-    var handler = scope.ServiceProvider.GetRequiredService<CustomerEventHandler>();
-    _processors.Add(handler);
-    await handler.StartProcessingAsync(stoppingToken);
-  }
+      // Start all message handlers
+      await StartMessageHandlersAsync(stoppingToken);
 
-  private async Task StartTransactionEventHandlerAsync(CancellationToken stoppingToken)
-  {
-    using var scope = _serviceProvider.CreateScope();
-    var handler = scope.ServiceProvider.GetRequiredService<TransactionEventHandler>();
-    _processors.Add(handler);
-    await handler.StartProcessingAsync(stoppingToken);
-  }
+      _logger.LogInformation("All message handlers started");
 
-  private async Task StartAccountEventHandlerAsync(CancellationToken stoppingToken)
-  {
-    using var scope = _serviceProvider.CreateScope();
-    var handler = scope.ServiceProvider.GetRequiredService<AccountEventHandler>();
-    _processors.Add(handler);
-    await handler.StartProcessingAsync(stoppingToken);
-  }
+      // Keep the service running until stopped
+      while (!stoppingToken.IsCancellationRequested)
+      {
+        await Task.Delay(TimeSpan.FromSeconds(30), stoppingToken);
+      }
 
-  public override async Task StopAsync(CancellationToken cancellationToken)
-  {
-    _logger.LogInformation("Stopping all message processors");
+      _logger.LogInformation("Stopping message processing service");
+    }
 
-    foreach (var processor in _processors)
+    private async Task StartMessageHandlersAsync(CancellationToken stoppingToken)
     {
       try
       {
-        await processor.DisposeAsync();
+        using var scope = _serviceProvider.CreateScope();
+
+        // Start customer event handler
+        var customerHandler = scope.ServiceProvider.GetService<CustomerEventServiceBusHandler>();
+        if (customerHandler != null)
+        {
+          await customerHandler.StartProcessingAsync(stoppingToken);
+          _processors.Add(customerHandler);
+          _logger.LogInformation("Started CustomerEventServiceBusHandler");
+        }
+
+        // Start transaction event handler
+        var transactionHandler = scope.ServiceProvider.GetService<TransactionEventServiceBusHandler>();
+        if (transactionHandler != null)
+        {
+          await transactionHandler.StartProcessingAsync(stoppingToken);
+          _processors.Add(transactionHandler);
+          _logger.LogInformation("Started TransactionEventServiceBusHandler");
+        }
+
+        // Add other handlers as needed
       }
       catch (Exception ex)
       {
-        _logger.LogError(ex, "Error disposing message processor");
+        _logger.LogError(ex, "Error starting message handlers");
+        throw;
       }
     }
 
-    await base.StopAsync(cancellationToken);
+    public override async Task StopAsync(CancellationToken cancellationToken)
+    {
+      _logger.LogInformation("Stopping all message processors");
+
+      foreach (var processor in _processors)
+      {
+        try
+        {
+          await processor.DisposeAsync();
+        }
+        catch (Exception ex)
+        {
+          _logger.LogError(ex, "Error disposing message processor");
+        }
+      }
+
+      await base.StopAsync(cancellationToken);
+    }
   }
 }

@@ -5,6 +5,7 @@ using CoreBanking.APP.Customers.Commands.CreateCustomer;
 using CoreBanking.APP.Customers.Queries.GetCustomerDetails;
 using CoreBanking.APP.Customers.Queries.GetCustomers;
 using MediatR;
+using CoreBanking.Core.ValueObjects;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CoreBanking.API.Controllers;

@@ -1,9 +1,12 @@
-
-public record CustomerId(Guid Value)
+namespace CoreBanking.Core.ValueObjects
 {
 
-    public static CustomerId Create() => new(Guid.NewGuid());
-    public static CustomerId Create(Guid value) => new(value);
+    public record CustomerId(Guid Value)
+    {
+
+        public static CustomerId Create() => new(Guid.NewGuid());
+        public static CustomerId Create(Guid value) => new(value);
+
+    }
 
 }
-

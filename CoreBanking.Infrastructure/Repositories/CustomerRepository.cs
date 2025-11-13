@@ -2,6 +2,7 @@
 using CoreBanking.Core.Entities;
 using CoreBanking.Infrastructure.Data;
 using CoreBanking.Core.Interfaces;
+using CoreBanking.Core.ValueObjects;
 using Microsoft.EntityFrameworkCore;
 
 

@@ -38,35 +38,35 @@ public class EnhancedRealTimeEventHandler :
       var sourceNotification = new TransactionNotification
       {
         TransactionId = notification.TransactionId.ToString(),
-        AccountNumber = notification.SourceAccount.ToString(),
+        AccountNumber = notification.SourceAccountNumber.ToString(),
         Amount = -notification.Amount.Amount, // Negative for debit
         Type = "Transfer Debit",
-        Description = $"Transfer to {notification.DestinationAccount}",
+        Description = $"Transfer to {notification.DestinationAccountNumber}",
         Timestamp = notification.TransferDate,
-        RunningBalance = await GetCurrentBalance(notification.SourceAccount.ToString())
+        RunningBalance = await GetCurrentBalance(notification.SourceAccountNumber.ToString())
       };
 
-      await _hubContext.Clients.Group($"account-{notification.SourceAccount}")
+      await _hubContext.Clients.Group($"account-{notification.SourceAccountNumber}")
           .ReceiveTransactionNotification(sourceNotification);
 
       // Notify destination account
       var destNotification = new TransactionNotification
       {
         TransactionId = notification.TransactionId.ToString(),
-        AccountNumber = notification.DestinationAccount.ToString(),
+        AccountNumber = notification.DestinationAccountNumber.ToString(),
         Amount = notification.Amount.Amount, // Positive for credit
         Type = "Transfer Credit",
-        Description = $"Transfer from {notification.SourceAccount}",
+        Description = $"Transfer from {notification.SourceAccountNumber}",
         Timestamp = notification.TransferDate,
-        RunningBalance = await GetCurrentBalance(notification.DestinationAccount.ToString())
+        RunningBalance = await GetCurrentBalance(notification.DestinationAccountNumber.ToString())
       };
 
-      await _hubContext.Clients.Group($"account-{notification.DestinationAccount}")
+      await _hubContext.Clients.Group($"account-{notification.DestinationAccountNumber}")
           .ReceiveTransactionNotification(destNotification);
 
       // Send balance updates
-      await SendBalanceUpdate(notification.SourceAccount.ToString());
-      await SendBalanceUpdate(notification.DestinationAccount.ToString());
+      await SendBalanceUpdate(notification.SourceAccountNumber.ToString());
+      await SendBalanceUpdate(notification.DestinationAccountNumber.ToString());
 
       _logger.LogInformation(
           "Sent real-time notifications for transfer {TransactionId}",

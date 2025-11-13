@@ -12,17 +12,17 @@ public class Transaction
     public string Description { get; private set; }
     public DateTime Timestamp { get; private set; }
     public string Reference { get; private set; }
-    public Account? Account { get; private set; }
+    public Account Account { get; private set; }
     public bool IsDeleted { get; private set; }
     public DateTime? DeletedAt { get; private set; }
     public string? DeletedBy { get; private set; }
 
 
     private Transaction() { }
-    public Transaction(AccountId accountId, TransactionType type, Money amount, string description, string reference = "")
+    public Transaction(AccountId accountId, Account account, TransactionType type, Money amount, string description, string reference = "")
     {
         TransactionId = TransactionId.Create();
-        AccountId = accountId;
+        AccountId = accountId; Account = account;
         Type = type;
         Amount = amount;
         Description = description ?? throw new ArgumentException(nameof(description));

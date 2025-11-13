@@ -1,44 +1,43 @@
-using
+// using Microsoft.Extensions.Logging;
+// namespace CoreBanking.Infrastructure.ServiceBus.Handlers;
 
-namespace CoreBanking.Infrastructure.ServiceBus.Handlers;
+// public class CustomerEventHandler : BaseMessageHandler<CustomerCreatedEvent>
+// {
+//   private readonly ILogger<CustomerEventHandler> _logger;
+//   private readonly INotificationService _notificationService;
+//   private readonly IReportingService _reportingService;
 
-public class CustomerEventHandler : BaseMessageHandler<CustomerCreatedEvent>
-{
-  private readonly ILogger<CustomerEventHandler> _logger;
-  private readonly INotificationService _notificationService;
-  private readonly IReportingService _reportingService;
+//   public CustomerEventHandler(
+//       IServiceBusClientFactory clientFactory,
+//       ServiceBusConfiguration config,
+//       ILogger<CustomerEventHandler> logger,
+//       INotificationService notificationService,
+//       IReportingService reportingService)
+//       : base(clientFactory, config.CustomerTopicName, "notifications", logger)
+//   {
+//     _logger = logger;
+//     _notificationService = notificationService;
+//     _reportingService = reportingService;
+//   }
 
-  public CustomerEventHandler(
-      IServiceBusClientFactory clientFactory,
-      ServiceBusConfiguration config,
-      ILogger<CustomerEventHandler> logger,
-      INotificationService notificationService,
-      IReportingService reportingService)
-      : base(clientFactory, config.CustomerTopicName, "notifications", logger)
-  {
-    _logger = logger;
-    _notificationService = notificationService;
-    _reportingService = reportingService;
-  }
+//   protected override async Task HandleMessageAsync(CustomerCreatedEvent customerEvent, CancellationToken cancellationToken)
+//   {
+//     _logger.LogInformation("Processing CustomerCreatedEvent for {CustomerId}", customerEvent.CustomerId);
 
-  protected override async Task HandleMessageAsync(CustomerCreatedEvent customerEvent, CancellationToken cancellationToken)
-  {
-    _logger.LogInformation("Processing CustomerCreatedEvent for {CustomerId}", customerEvent.CustomerId);
+//     try
+//     {
+//       // Send welcome notification
+//       await _notificationService.SendWelcomeEmailAsync(customerEvent.Email, customerEvent.FirstName, cancellationToken);
 
-    try
-    {
-      // Send welcome notification
-      await _notificationService.SendWelcomeEmailAsync(customerEvent.Email, customerEvent.FirstName, cancellationToken);
+//       // Record in reporting system
+//       await _reportingService.RecordCustomerRegistrationAsync(customerEvent, cancellationToken);
 
-      // Record in reporting system
-      await _reportingService.RecordCustomerRegistrationAsync(customerEvent, cancellationToken);
-
-      _logger.LogInformation("Successfully processed CustomerCreatedEvent for {CustomerId}", customerEvent.CustomerId);
-    }
-    catch (Exception ex)
-    {
-      _logger.LogError(ex, "Failed to process CustomerCreatedEvent for {CustomerId}", customerEvent.CustomerId);
-      throw; // This will trigger retry or dead lettering
-    }
-  }
-}
+//       _logger.LogInformation("Successfully processed CustomerCreatedEvent for {CustomerId}", customerEvent.CustomerId);
+//     }
+//     catch (Exception ex)
+//     {
+//       _logger.LogError(ex, "Failed to process CustomerCreatedEvent for {CustomerId}", customerEvent.CustomerId);
+//       throw; // This will trigger retry or dead lettering
+//     }
+//   }
+// }

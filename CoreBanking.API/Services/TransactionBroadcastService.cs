@@ -1,120 +1,57 @@
-using CoreBanking.API.Hubs.Interfaces;
 using CoreBanking.API.Hubs;
+using CoreBanking.Core.Interfaces;
 using Microsoft.AspNetCore.SignalR;
-using MediatR;
-using CoreBanking.API.Hubs.Models;
+
 namespace CoreBanking.API.Services;
 
-public class TransactionBroadcastService : IHostedService, IDisposable
+public class NotificationBroadcaster : INotificationBroadcaster
 {
-  private readonly ILogger<TransactionBroadcastService> _logger;
-  private readonly IServiceProvider _serviceProvider;
-  private readonly IHubContext<EnhancedTransactionHub, IBankingClient> _hubContext;
-  private Timer? _broadcastTimer;
-  private readonly Random _random = new();
+  private readonly IHubContext<NotificationHub> _notificationHub;
+  private readonly ILogger<NotificationBroadcaster> _logger;
 
-  public TransactionBroadcastService(
-      ILogger<TransactionBroadcastService> logger,
-      IServiceProvider serviceProvider,
-      IHubContext<EnhancedTransactionHub, IBankingClient> hubContext)
+  public NotificationBroadcaster(
+      IHubContext<NotificationHub> notificationHub,
+      ILogger<NotificationBroadcaster> logger)
   {
+    _notificationHub = notificationHub;
     _logger = logger;
-    _serviceProvider = serviceProvider;
-    _hubContext = hubContext;
   }
 
-  public Task StartAsync(CancellationToken cancellationToken)
-  {
-    _logger.LogInformation("Transaction Broadcast Service starting...");
-
-    // Start broadcasting simulated transactions (for demo purposes)
-    _broadcastTimer = new Timer(BroadcastSimulatedTransactions, null,
-        TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(30)); // Every 30 seconds
-
-    return Task.CompletedTask;
-  }
-
-  public Task StopAsync(CancellationToken cancellationToken)
-  {
-    _logger.LogInformation("Transaction Broadcast Service stopping...");
-    _broadcastTimer?.Change(Timeout.Infinite, 0);
-    return Task.CompletedTask;
-  }
-
-  private async void BroadcastSimulatedTransactions(object? state)
+  public async Task BroadcastCustomerCreatedAsync(Guid customerId, string customerName, string email, int creditScore)
   {
     try
     {
-      using var scope = _serviceProvider.CreateScope();
-      var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
-
-      // Get some active accounts for simulation
-      var activeAccounts = await GetActiveAccounts(mediator);
-      if (!activeAccounts.Any()) return;
-
-      // Simulate a random transaction
-      var sourceAccount = activeAccounts[_random.Next(activeAccounts.Count)];
-      var destinationAccount = activeAccounts[_random.Next(activeAccounts.Count)];
-
-      // Ensure different accounts
-      while (destinationAccount == sourceAccount && activeAccounts.Count > 1)
+      await _notificationHub.Clients.All.SendAsync("CustomerCreated", new
       {
-        destinationAccount = activeAccounts[_random.Next(activeAccounts.Count)];
-      }
+        CustomerId = customerId,
+        CustomerName = customerName,
+        Email = email,
+        CreditScore = creditScore,
+        Timestamp = DateTime.UtcNow
+      });
 
-      var amount = _random.Next(10, 500);
-      var transactionType = amount > 200 ? "Transfer" : "Payment";
-
-      var notification = new TransactionNotification
-      {
-        TransactionId = Guid.NewGuid().ToString(),
-        AccountNumber = sourceAccount,
-        Amount = -amount, // Debit from source
-        Type = "Debit",
-        Description = $"{transactionType} to {destinationAccount}",
-        Timestamp = DateTime.UtcNow,
-        RunningBalance = 0 // Would be calculated from actual balance
-      };
-
-      // Broadcast to source account
-      await _hubContext.Clients.Group($"account-{sourceAccount}")
-          .ReceiveTransactionNotification(notification);
-
-      // Also send to destination account if different
-      if (sourceAccount != destinationAccount)
-      {
-        var creditNotification = new TransactionNotification
-        {
-          TransactionId = notification.TransactionId,
-          AccountNumber = destinationAccount,
-          Amount = amount, // Credit to destination
-          Type = "Credit",
-          Description = $"{transactionType} from {sourceAccount}",
-          Timestamp = DateTime.UtcNow,
-          RunningBalance = 0
-        };
-
-        await _hubContext.Clients.Group($"account-{destinationAccount}")
-            .ReceiveTransactionNotification(creditNotification);
-      }
-
-      _logger.LogDebug("Broadcast simulated transaction {TransactionId}", notification.TransactionId);
+      _logger.LogInformation("Broadcasted customer creation for {CustomerId}", customerId);
     }
     catch (Exception ex)
     {
-      _logger.LogError(ex, "Error broadcasting simulated transactions");
+      _logger.LogError(ex, "Failed to broadcast customer creation for {CustomerId}", customerId);
+      throw;
     }
   }
 
-  private async Task<List<string>> GetActiveAccounts(IMediator mediator)
+  public Task BroadcastFraudAlertAsync(Guid transactionId, string reason, decimal amount)
   {
-    // In production, this would query actual active accounts
-    // For demo, return some sample account numbers
-    return new List<string> { "123456789", "987654321", "555555555", "111111111" };
+    throw new NotImplementedException();
   }
 
-  public void Dispose()
+  public async Task BroadcastTransactionAsync(Guid transactionId, decimal amount, string transactionType, Guid fromAccount, Guid toAccount)
   {
-    _broadcastTimer?.Dispose();
+    // Implement transaction broadcasting
+    await Task.CompletedTask;
+  }
+
+  public Task BroadcastTransactionAsync(Guid transactionId, decimal amount, string transactionType, string fromAccount, string toAccount)
+  {
+    throw new NotImplementedException();
   }
 }

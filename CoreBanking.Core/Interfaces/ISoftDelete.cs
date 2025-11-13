@@ -1,7 +1,4 @@
-using System;
-
-namespace CoreBanking.Core.Interfaces;
-
+// namespace CoreBanking.Core.Interfaces;
 public interface ISoftDelete
 {
     bool IsDeleted { get; }

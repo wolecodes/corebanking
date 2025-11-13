@@ -1,5 +1,6 @@
 ﻿using CoreBanking.APP.Common.Interfaces;
 using MediatR;
+using CoreBanking.Core.ValueObjects;
 using CoreBanking.APP.Common.Models;
 using CoreBanking.Core.Interfaces;
 

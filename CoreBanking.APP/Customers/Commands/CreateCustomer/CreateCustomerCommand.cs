@@ -1,4 +1,5 @@
 ﻿using CoreBanking.APP.Common.Interfaces;
+using CoreBanking.Core.ValueObjects;
 namespace CoreBanking.APP.Customers.Commands.CreateCustomer;
 
 public record CreateCustomerCommand : ICommand<CustomerId>

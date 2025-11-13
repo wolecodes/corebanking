@@ -1,35 +1,38 @@
 using CoreBanking.Core.Interfaces;
 using Microsoft.Extensions.Logging;
-using System.Text;
+using Polly;
+using Polly.Retry;
 using System.Text.Json;
+
 namespace CoreBanking.Infrastructure.ServiceBus;
 
 public class ServiceBusEventPublisher : IEventPublisher
 {
-  private readonly IServiceBusClientFactory _clientFactory;
+  private readonly IBankingServiceBusSender _serviceBusSender;
   private readonly ServiceBusConfiguration _config;
   private readonly ILogger<ServiceBusEventPublisher> _logger;
   private readonly AsyncRetryPolicy _retryPolicy;
 
   public ServiceBusEventPublisher(
-      IServiceBusClientFactory clientFactory,
+      IBankingServiceBusSender serviceBusSender,
       ServiceBusConfiguration config,
       ILogger<ServiceBusEventPublisher> logger)
   {
-    _clientFactory = clientFactory;
+    _serviceBusSender = serviceBusSender;
     _config = config;
     _logger = logger;
 
+    // Add retry policy for transient failures
     _retryPolicy = Policy
-        .Handle<ServiceBusException>(ex => ex.IsTransient)
+        .Handle<Exception>(ex => IsTransientException(ex))
         .WaitAndRetryAsync(
             retryCount: 3,
             sleepDurationProvider: retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)),
             onRetry: (exception, delay, retryCount, context) =>
             {
               _logger.LogWarning(
-                          "Retry {RetryCount} for event publishing after {Delay}ms. Error: {Error}",
-                          retryCount, delay.TotalMilliseconds, exception.Message);
+                      "Retry {RetryCount} for event publishing after {Delay}ms. Error: {Error}",
+                      retryCount, delay.TotalMilliseconds, exception.Message);
             });
   }
 
@@ -39,19 +42,35 @@ public class ServiceBusEventPublisher : IEventPublisher
     var topicName = GetTopicNameForEvent(typeof(TEvent));
     var eventType = domainEvent.GetType().Name;
 
-    var message = CreateServiceBusMessage(domainEvent, eventType);
+    var (eventData, properties) = CreateMessageData(domainEvent, eventType);
 
+    // Use retry policy for resilience
     await _retryPolicy.ExecuteAsync(async () =>
     {
-      var sender = _clientFactory.CreateSender(topicName);
-      await sender.SendMessageAsync(message, cancellationToken);
+      await _serviceBusSender.SendMessageAsync(topicName, eventData, properties, cancellationToken);
 
       _logger.LogInformation(
-                  "Published {EventType} with ID {EventId} to {Topic}",
-                  eventType, domainEvent.EventId, topicName);
+              "Published {EventType} with ID {EventId} to {Topic}",
+              eventType, domainEvent.EventId, topicName);
     });
   }
 
+  // Keep your existing method for backward compatibility
+  public async Task PublishAsync(string topicName, string eventType, string eventData, CancellationToken cancellationToken = default)
+  {
+    var properties = new Dictionary<string, object>
+    {
+      ["EventType"] = eventType,
+      ["EventId"] = Guid.NewGuid().ToString(),
+      ["OccurredOn"] = DateTime.UtcNow,
+      ["Source"] = "CoreBanking"
+    };
+
+    await _serviceBusSender.SendMessageAsync(topicName, eventData, properties, cancellationToken);
+    _logger.LogDebug("Published custom event {EventType} to {Topic}", eventType, topicName);
+  }
+
+  // NEW: Batch publishing for better performance
   public async Task PublishBatchAsync<TEvent>(IEnumerable<TEvent> domainEvents, CancellationToken cancellationToken = default)
       where TEvent : IDomainEvent
   {
@@ -60,36 +79,32 @@ public class ServiceBusEventPublisher : IEventPublisher
     foreach (var topicGroup in eventsByTopic)
     {
       var topicName = topicGroup.Key;
-      var sender = _clientFactory.CreateSender(topicName);
+      var eventsList = topicGroup.ToList();
 
-      using var messageBatch = await sender.CreateMessageBatchAsync(cancellationToken);
-
-      foreach (var domainEvent in topicGroup)
+      // For small batches, use individual sends
+      if (eventsList.Count <= 10)
       {
-        var eventType = domainEvent.GetType().Name;
-        var message = CreateServiceBusMessage(domainEvent, eventType);
-
-        if (!messageBatch.TryAddMessage(message))
-        {
-          await sender.SendMessagesAsync(messageBatch, cancellationToken);
-          _logger.LogInformation("Sent batch of {Count} messages to {Topic}", messageBatch.Count, topicName);
-
-          // Create new batch and add the current message
-          using var newBatch = await sender.CreateMessageBatchAsync(cancellationToken);
-          newBatch.TryAddMessage(message);
-        }
+        var tasks = eventsList.Select(e => PublishAsync(e, cancellationToken));
+        await Task.WhenAll(tasks);
       }
-
-      if (messageBatch.Count > 0)
+      else
       {
-        await sender.SendMessagesAsync(messageBatch, cancellationToken);
-        _logger.LogInformation("Sent final batch of {Count} messages to {Topic}", messageBatch.Count, topicName);
+        // For larger batches, you might need to implement batch sending
+        // This depends on your IServiceBusSender implementation
+        _logger.LogWarning("Large batch detected ({Count} events). Consider implementing batch send in IServiceBusSender.",
+            eventsList.Count);
+
+        // Fallback to individual sends
+        foreach (var domainEvent in eventsList)
+        {
+          await PublishAsync(domainEvent, cancellationToken);
+        }
       }
     }
   }
 
-  private ServiceBusMessage CreateServiceBusMessage<TEvent>(TEvent domainEvent, string eventType)
-      where TEvent : IDomainEvent
+  private (string eventData, Dictionary<string, object> properties) CreateMessageData<TEvent>(
+      TEvent domainEvent, string eventType) where TEvent : IDomainEvent
   {
     var eventData = JsonSerializer.Serialize(domainEvent, new JsonSerializerOptions
     {
@@ -97,48 +112,48 @@ public class ServiceBusEventPublisher : IEventPublisher
       WriteIndented = false
     });
 
-    var message = new ServiceBusMessage(Encoding.UTF8.GetBytes(eventData))
+    var properties = new Dictionary<string, object>
     {
-      ContentType = "application/json",
-      MessageId = domainEvent.EventId.ToString(),
-      CorrelationId = GetCorrelationId(domainEvent),
-      Subject = eventType,
-      ApplicationProperties =
-                {
-                    ["EventType"] = eventType,
-                    ["EventId"] = domainEvent.EventId.ToString(),
-                    ["OccurredOn"] = domainEvent.OccurredOn,
-                    ["Source"] = "CoreBanking",
-                    ["Version"] = "1.0",
-                    ["AggregateType"] = GetAggregateType(domainEvent),
-                    ["AggregateId"] = GetAggregateId(domainEvent)
-                }
+      ["EventType"] = eventType,
+      ["EventId"] = domainEvent.EventId.ToString(),
+      ["OccurredOn"] = domainEvent.OccurredOn,
+      ["Source"] = "CoreBanking",
+      ["Version"] = "1.0",
+      ["AggregateType"] = GetAggregateType(domainEvent),
+      ["AggregateId"] = GetAggregateId(domainEvent),
+      ["TimeToLive"] = GetTimeToLive(eventType).ToString() // Add as property since your sender might handle TTL
     };
 
-    // Set time to live based on event type
-    message.TimeToLive = eventType switch
+    return (eventData, properties);
+  }
+
+  private TimeSpan GetTimeToLive(string eventType)
+  {
+    return eventType switch
     {
       var et when et.Contains("Transaction") => TimeSpan.FromDays(30),
       var et when et.Contains("Account") => TimeSpan.FromDays(90),
       var et when et.Contains("Customer") => TimeSpan.FromDays(365),
       _ => TimeSpan.FromDays(7)
     };
+  }
 
-    return message;
+  private bool IsTransientException(Exception ex)
+  {
+    // Common transient exceptions in messaging
+    return ex is TimeoutException ||
+           ex is OperationCanceledException ||
+           (ex is InvalidOperationException && ex.Message.Contains("timeout")) ||
+           (ex.Message.Contains("retry", StringComparison.OrdinalIgnoreCase));
   }
 
   private string GetTopicNameForEvent(Type eventType)
   {
+    // Use your existing logic but with configurable topic names
     if (eventType.Name.Contains("Customer")) return _config.CustomerTopicName;
     if (eventType.Name.Contains("Account")) return _config.AccountTopicName;
     if (eventType.Name.Contains("Transaction")) return _config.TransactionTopicName;
     return "general-events";
-  }
-
-  private string GetCorrelationId<TEvent>(TEvent domainEvent) where TEvent : IDomainEvent
-  {
-    // Extract correlation ID from event data or generate one
-    return domainEvent.EventId.ToString();
   }
 
   private string GetAggregateType<TEvent>(TEvent domainEvent) where TEvent : IDomainEvent
@@ -148,8 +163,8 @@ public class ServiceBusEventPublisher : IEventPublisher
 
   private string GetAggregateId<TEvent>(TEvent domainEvent) where TEvent : IDomainEvent
   {
-    // This would need to be implemented based on your domain event structure
-    // For now, return a placeholder
-    return "unknown";
+    // Implement based on your domain event structure
+    // For now, use a placeholder or extract from event
+    return domainEvent.EventId.ToString();
   }
 }

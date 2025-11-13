@@ -31,30 +31,30 @@ public class RealTimeNotificationEventHandler : INotificationHandler<MoneyTransf
       var sourceNotification = new TransactionNotification
       {
         TransactionId = notification.TransactionId.ToString(),
-        AccountNumber = notification.SourceAccount.ToString(),
+        AccountNumber = notification.SourceAccountNumber.ToString(),
         Amount = -notification.Amount.Amount, // Negative for debit
         Type = "Debit",
-        Description = $"Transfer to {notification.DestinationAccount}",
+        Description = $"Transfer to {notification.DestinationAccountNumber}",
         Timestamp = notification.TransferDate,
         RunningBalance = 0 // Would need to fetch current balance
       };
 
-      await _hubContext.Clients.Group($"account-{notification.SourceAccount}")
+      await _hubContext.Clients.Group($"account-{notification.SourceAccountNumber}")
           .ReceiveTransactionNotification(sourceNotification);
 
       // Notify destination account
       var destNotification = new TransactionNotification
       {
         TransactionId = notification.TransactionId.ToString(),
-        AccountNumber = notification.DestinationAccount.ToString(),
+        AccountNumber = notification.DestinationAccountNumber.ToString(),
         Amount = notification.Amount.Amount, // Positive for credit
         Type = "Credit",
-        Description = $"Transfer from {notification.SourceAccount}",
+        Description = $"Transfer from {notification.SourceAccountNumber}",
         Timestamp = notification.TransferDate,
         RunningBalance = 0 // Would need to fetch current balance
       };
 
-      await _hubContext.Clients.Group($"account-{notification.DestinationAccount}")
+      await _hubContext.Clients.Group($"account-{notification.DestinationAccountNumber}")
           .ReceiveTransactionNotification(destNotification);
 
       _logger.LogInformation(

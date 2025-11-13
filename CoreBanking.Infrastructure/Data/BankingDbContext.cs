@@ -141,16 +141,15 @@ public class BankingDbContext : DbContext
             FirstName = "Alice",
             LastName = "Johnson",
             Email = "alice.johnson@email.com",
-            PhoneNumber = "08134570701",
-            DateCreated = DateTime.UtcNow.AddDays(-30),
+            PhoneNumber = "555-0101",
+            BVN = "20000000009",
+            CreditScore = 40,
+            // Use static, fixed dates instead of DateTime.UtcNow.AddX
+            DateOfBirth = new DateTime(1995, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+            DateCreated = new DateTime(2024, 10, 1, 0, 0, 0, DateTimeKind.Utc),
             IsActive = true,
-            Address = "13,Oshinowo street abule osho",
-            DateOfBirth = DateTime.UtcNow.AddDays(-30),
-            IsDeleted = false,
-            BVN = "12345678901",  // Add this
-            CreditScore = 700
-        }
-        );
+            IsDeleted = false
+        });
 
 
 

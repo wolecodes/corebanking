@@ -1,13 +1,12 @@
-using CoreBanking.API.Extensions;
-using CoreBanking.API.gRPC;
 using CoreBanking.API.gRPC.Mappings;
 using CoreBanking.API.Hubs;
 using CoreBanking.API.Hubs.EventHandlers;
 using CoreBanking.API.Hubs.Management;
 using CoreBanking.API.Middleware;
+using CoreBanking.API.gRPC;
 using CoreBanking.API.Services;
-using CoreBanking.APP.Accounts.Commands.CreateAccount;
 using CoreBanking.APP.Accounts.Commands.CreatedAccount;
+using CoreBanking.APP.Accounts.Commands.CreateAccount;
 using CoreBanking.APP.Accounts.EventHandlers;
 using CoreBanking.APP.Common.Behaviors;
 using CoreBanking.APP.Common.Interfaces;
@@ -15,6 +14,7 @@ using CoreBanking.APP.Common.Mappings;
 using CoreBanking.APP.Common.Models;
 using CoreBanking.APP.External.HttpClients;
 using CoreBanking.APP.External.Interfaces;
+using CoreBanking.Application.Transactions.EventHandlers;
 using CoreBanking.Core.Events;
 using CoreBanking.Core.Interfaces;
 using CoreBanking.Infrastructure.Data;
@@ -27,242 +27,257 @@ using FluentValidation;
 using MediatR;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Microsoft.OpenApi.Models;
 using Polly;
 using Polly.Extensions.Http;
 
-
-namespace CoreBanking.API;
-
-public class Program
+namespace CoreBanking.API
 {
-    public static void Main(string[] args)
+    public class Program
     {
-        var builder = WebApplication.CreateBuilder(args);
-
-        // ------------------- SERVICES -------------------
-
-        builder.Services.AddDbContext<BankingDbContext>(options =>
-            options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
-
-        // Core dependencies
-        builder.Services.AddScoped<ICustomerRepository, CustomerRepository>();
-        builder.Services.AddScoped<IAccountRepository, AccountRepository>();
-        builder.Services.AddScoped<ITransactionRepository, TransactionRepository>();
-        builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
-        builder.Services.AddScoped<IDomainEventDispatcher, DomainEventDispatcher>();
-
-        // Event handlers
-        builder.Services.AddTransient<INotificationHandler<AccountCreatedEvent>, AccountCreatedEventHandler>();
-        builder.Services.AddTransient<INotificationHandler<MoneyTransferedEvent>, MoneyTransferedEventHandler>();
-        builder.Services.AddTransient<INotificationHandler<InsufficientFundEvent>, InsufficientFundsEventHandler>();
-        builder.Services.AddTransient<INotificationHandler<MoneyTransferedEvent>, RealTimeNotificationEventHandler>();
-
-        // Pipeline behaviors
-        builder.Services.AddTransient(typeof(IPipelineBehavior<,>), typeof(DomainEventsBehavior<,>));
-        builder.Services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
-        builder.Services.AddTransient(typeof(IPipelineBehavior<,>), typeof(LoggingBehaviour<,>));
-
-        // gRPC + Reflection
-        builder.Services.AddGrpc(options =>
+        public static async Task Main(string[] args)
         {
-            options.EnableDetailedErrors = true;
-        });
-        builder.Services.AddGrpcReflection();
+            var builder = WebApplication.CreateBuilder(args);
 
-        // SignalR
-        builder.Services.AddSignalR();
+            // =====================================================================
+            // DATABASE
+            // =====================================================================
+            builder.Services.AddDbContext<BankingDbContext>(options =>
+                options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-        // MediatR setup
-        builder.Services.AddMediatR(cfg =>
-        {
-            cfg.RegisterServicesFromAssembly(typeof(CreateAccountCommand).Assembly);
-            cfg.AddOpenBehavior(typeof(ValidationBehavior<,>));
-            cfg.AddOpenBehavior(typeof(LoggingBehaviour<,>));
-            cfg.AddOpenBehavior(typeof(DomainEventsBehavior<,>));
-        });
+            // =====================================================================
+            // CORE & INFRASTRUCTURE
+            // =====================================================================
+            builder.Services.AddScoped<IAccountRepository, AccountRepository>();
+            builder.Services.AddScoped<ICustomerRepository, CustomerRepository>();
+            builder.Services.AddScoped<ITransactionRepository, TransactionRepository>();
+            builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
+            builder.Services.AddScoped<IDomainEventDispatcher, DomainEventDispatcher>();
+            builder.Services.AddSingleton<IEventPublisher, ServiceBusEventPublisher>();
 
-        // Validation and mapping
-        builder.Services.AddValidatorsFromAssembly(typeof(CreateAccountCommandValidator).Assembly);
-        builder.Services.AddAutoMapper(cfg => { }, typeof(AccountProfile).Assembly);
-        builder.Services.AddAutoMapper(cfg => { }, typeof(AccountGrpcProfile).Assembly);
-
-        // Add resilience options
-        builder.Services.Configure<ResilenceOptions>(builder.Configuration.GetSection("Resilience"));
-
-        // Add advanced Polly policies
-        builder.Services.AddSingleton<AdvancedPollyPolicies>();
-        // Add simulated external services
-        builder.Services.AddSingleton<ISimulatedCreditScoringService, SimulatedCreditScoringService>();
-
-
-        // Add Azure Service Bus (simulated for now - will configure properly in subscequent class)
-        // builder.Services.AddSingleton<IServiceBusSender>(provider =>
-        // {
-        //     var logger = provider.GetRequiredService<ILogger<ServiceBusSender>>();
-        //     // For today, we'll use a mock. Tomorrow we'll add real Azure Service Bus connection
-        //     return new MockServiceBusSender(logger);
-        // });
-
-        builder.Services.AddSingleton<IEventPublisher, ServiceBusEventPublisher>();
-        builder.Services.AddScoped<IDomainEventDispatcher, ServiceBusEventDispatcher>();
-
-        // Outbox
-        builder.Services.AddScoped<IOutboxMessageProcessor, OutboxMessageProcessor>();
-        builder.Services.AddHostedService<OutboxBackgroundService>();
-
-        // Controllers + Swagger
-        builder.Services.AddControllers();
-        builder.Services.AddEndpointsApiExplorer();
-        builder.Services.AddSwaggerGen(c =>
-        {
-            c.SwaggerDoc("v1", new OpenApiInfo
+            // =====================================================================
+            // EXTERNAL SERVICES + RESILIENCE
+            // =====================================================================
+            builder.Services.AddHttpClient<ICreditScoringServiceClient, CreditScoringServiceClient>(client =>
             {
-                Title = "CoreBanking API",
-                Version = "v1",
-                Description = "A modern banking API built with Clean Architecture, DDD, and CQRS"
+                client.BaseAddress = new Uri(builder.Configuration["CreditScoringApi:BaseUrl"] ?? "https://api.example.com");
+                client.DefaultRequestHeaders.Add("Accept", "application/json");
             });
-        });
 
-        // Kestrel multi-protocol setup
-        builder.WebHost.ConfigureKestrel(options =>
-        {
-            // HTTP/1.1 for REST, Swagger, etc.
-            options.ListenLocalhost(5037, o => o.Protocols = HttpProtocols.Http1);
+            builder.Services.AddSingleton<ISimulatedCreditScoringService, SimulatedCreditScoringService>();
+            builder.Services.AddSingleton<IResilientHttpClientService, ResilientHttpClientService>();
+            builder.Services.AddScoped<IResilienceService, ResilienceService>();
+            builder.Services.Configure<ResilenceOptions>(builder.Configuration.GetSection("Resilience"));
 
-            // HTTP/2 for gRPC
-            options.ListenLocalhost(7288, o =>
+            // =====================================================================
+            // AZURE SERVICE BUS (MOCK-SAFE CONFIG)
+            // =====================================================================
+            builder.Services.Configure<ServiceBusConfiguration>(builder.Configuration.GetSection("ServiceBus"));
+            builder.Services.AddSingleton(sp => sp.GetRequiredService<IOptions<ServiceBusConfiguration>>().Value);
+
+            builder.Services.AddSingleton<IServiceBusClientFactory>(provider =>
             {
-                o.UseHttps();
-                o.Protocols = HttpProtocols.Http2;
+                var env = provider.GetRequiredService<IHostEnvironment>();
+                var logger = provider.GetRequiredService<ILogger<ServiceBusClientFactory>>();
+                var config = provider.GetRequiredService<IOptions<ServiceBusConfiguration>>().Value;
+
+                var connectionString = env.IsDevelopment() || string.IsNullOrWhiteSpace(config.ConnectionString)
+                    ? "Endpoint=sb://mock-servicebus/;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=mock"
+                    : config.ConnectionString;
+
+                return new ServiceBusClientFactory(connectionString, logger);
             });
-        });
-        // Add SignalR services
-        builder.Services.AddSignalR(options =>
-        {
-            options.EnableDetailedErrors = builder.Environment.IsDevelopment();
-            options.KeepAliveInterval = TimeSpan.FromSeconds(15);
-            options.ClientTimeoutInterval = TimeSpan.FromSeconds(30);
-            options.MaximumReceiveMessageSize = 64 * 1024; // 64KB
-        })
-        .AddMessagePackProtocol();
 
-        // Add connection state management
-        builder.Services.AddSingleton<ConnectionStateService>();
+            builder.Services.AddSingleton<ServiceBusAdministration>(provider =>
+            {
+                var env = provider.GetRequiredService<IHostEnvironment>();
+                var logger = provider.GetRequiredService<ILogger<ServiceBusAdministration>>();
+                var config = provider.GetRequiredService<IOptions<ServiceBusConfiguration>>().Value;
 
-        // Add hosted services
-        builder.Services.AddHostedService<TransactionBroadcastService>();
+                var connectionString = env.IsDevelopment() || string.IsNullOrWhiteSpace(config.ConnectionString)
+                    ? "Endpoint=sb://mock-servicebus/;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=mock"
+                    : config.ConnectionString;
 
-        // Add external HTTP clients with resilience
-        builder.Services.AddExternalHttpClients(builder.Configuration);
+                return new ServiceBusAdministration(connectionString, config, logger);
+            });
 
-        // Add resilience services
-        builder.Services.AddSingleton<IResilientHttpClientService, ResilientHttpClientService>();
+            builder.Services.AddSingleton<IBankingServiceBusSender>(provider =>
+            {
+                var logger = provider.GetRequiredService<ILogger<BankingServiceBusSender>>();
+                var configuration = provider.GetRequiredService<IConfiguration>();
 
+                var conn = configuration.GetConnectionString("ServiceBus")
+                    ?? "Endpoint=sb://mock-servicebus/;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=mock";
 
-        builder.Services.Configure<ServiceBusConfiguration>(builder.Configuration.GetSection("ServiceBus"));
+                return new BankingServiceBusSender(conn, logger);
+            });
 
-        // Service Bus Infrastructure
-        builder.Services.AddSingleton<IServiceBusClientFactory>(provider =>
-        {
-            var config = provider.GetRequiredService<IOptions<ServiceBusConfiguration>>().Value;
-            var logger = provider.GetRequiredService<ILogger<ServiceBusClientFactory>>();
-            return new ServiceBusClientFactory(config.ConnectionString, logger);
-        });
+            builder.Services.AddSingleton<IDeadLetterQueueProcessor, DeadLetterQueueProcessor>();
+            builder.Services.AddSingleton<CustomerEventServiceBusHandler>();
+            builder.Services.AddSingleton<TransactionEventServiceBusHandler>();
 
-        builder.Services.AddSingleton<ServiceBusAdministration>(provider =>
-        {
-            var config = provider.GetRequiredService<IOptions<ServiceBusConfiguration>>().Value;
-            var logger = provider.GetRequiredService<ILogger<ServiceBusAdministration>>();
-            return new ServiceBusAdministration(config.ConnectionString, config, logger);
-        });
+            builder.Services.AddHostedService<MessageProcessingService>();
+            builder.Services.AddHostedService<DeadLetterQueueMonitorService>();
 
-        builder.Services.AddSingleton<IEventPublisher, ServiceBusEventPublisher>();
-        builder.Services.AddScoped<IDomainEventDispatcher, ServiceBusEventDispatcher>();
-        builder.Services.AddSingleton<IDeadLetterQueueProcessor, DeadLetterQueueProcessor>();
+            // Fraud detection (mock-safe)
+            builder.Services.AddScoped<IFraudDetectionService, MockFraudDetectionService>();
 
-        // Message Handlers
-        builder.Services.AddSingleton<CustomerEventHandler>();
-        builder.Services.AddSingleton<TransactionEventHandler>();
-        builder.Services.AddSingleton<AccountEventHandler>();
+            // =====================================================================
+            // DOMAIN EVENT HANDLERS
+            // =====================================================================
+            builder.Services.AddTransient<INotificationHandler<AccountCreatedEvent>, AccountCreatedEventHandler>();
+            builder.Services.AddTransient<INotificationHandler<MoneyTransferedEvent>, MoneyTransferredEventHandler>();
+            builder.Services.AddTransient<INotificationHandler<InsufficientFundEvent>, InsufficientFundsEventHandler>();
+            builder.Services.AddTransient<INotificationHandler<MoneyTransferedEvent>, RealTimeNotificationEventHandler>();
 
-        // Background Services
-        builder.Services.AddHostedService<MessageProcessingService>();
-        builder.Services.AddHostedService<DeadLetterQueueMonitorService>();
-        // Register Polly policies
-        builder.Services.AddSingleton(HttpPolicyExtensions
-            .HandleTransientHttpError()
-            .OrResult(msg => !msg.IsSuccessStatusCode)
-            .WaitAndRetryAsync(
-                retryCount: 3,
-                sleepDurationProvider: retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)),
-                onRetry: (outcome, timespan, retryCount, context) =>
+            // =====================================================================
+            // PIPELINE BEHAVIORS (MEDIATR)
+            // =====================================================================
+            builder.Services.AddTransient(typeof(IPipelineBehavior<,>), typeof(DomainEventsBehavior<,>));
+            builder.Services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
+            builder.Services.AddTransient(typeof(IPipelineBehavior<,>), typeof(LoggingBehaviour<,>));
+
+            // =====================================================================
+            // gRPC
+            // =====================================================================
+            builder.Services.AddGrpc(options => options.EnableDetailedErrors = true);
+            builder.Services.AddGrpcReflection();
+
+            // =====================================================================
+            // SIGNALR
+            // =====================================================================
+            builder.Services.AddSignalR(options =>
+            {
+                options.EnableDetailedErrors = builder.Environment.IsDevelopment();
+                options.KeepAliveInterval = TimeSpan.FromSeconds(15);
+                options.ClientTimeoutInterval = TimeSpan.FromSeconds(30);
+                options.MaximumReceiveMessageSize = 64 * 1024; // 64KB
+            }).AddMessagePackProtocol();
+
+            builder.Services.AddSingleton<ConnectionStateService>();
+            // builder.Services.AddHostedService<TransactionBroadcastService>(); // TODO: Implement TransactionBroadcastService
+            builder.Services.AddScoped<INotificationBroadcaster, NotificationBroadcaster>();
+
+            // =====================================================================
+            // POLLY
+            // =====================================================================
+            builder.Services.AddSingleton(HttpPolicyExtensions
+                .HandleTransientHttpError()
+                .OrResult(msg => !msg.IsSuccessStatusCode)
+                .WaitAndRetryAsync(
+                    retryCount: 3,
+                    sleepDurationProvider: retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)),
+                    onRetry: (outcome, timespan, retryCount, context) =>
+                    {
+                        var logger = context.GetLogger();
+                        logger?.LogWarning("Retry {RetryCount} after {Delay}ms", retryCount, timespan.TotalMilliseconds);
+                    }));
+
+            builder.Services.AddSingleton<AdvancedPollyPolicies>();
+
+            // =====================================================================
+            // VALIDATION, MAPPING & OUTBOX
+            // =====================================================================
+            builder.Services.AddValidatorsFromAssembly(typeof(CreateAccountCommandValidator).Assembly);
+            builder.Services.AddAutoMapper(cfg => { }, typeof(AccountProfile).Assembly);
+            builder.Services.AddAutoMapper(cfg => { }, typeof(AccountGrpcProfile).Assembly);
+
+            builder.Services.AddScoped<IOutboxMessageProcessor, OutboxMessageProcessor>();
+            builder.Services.AddHostedService<OutboxBackgroundService>();
+
+            // =====================================================================
+            // MEDIATR CONFIGURATION
+            // =====================================================================
+            builder.Services.AddMediatR(cfg =>
+            {
+                cfg.RegisterServicesFromAssembly(typeof(CreateAccountCommand).Assembly);
+                cfg.AddOpenBehavior(typeof(ValidationBehavior<,>));
+                cfg.AddOpenBehavior(typeof(LoggingBehaviour<,>));
+                cfg.AddOpenBehavior(typeof(DomainEventsBehavior<,>));
+            });
+
+            // =====================================================================
+            // CONTROLLERS + SWAGGER
+            // =====================================================================
+            builder.Services.AddControllers();
+            builder.Services.AddEndpointsApiExplorer();
+            builder.Services.AddSwaggerGen(c =>
+            {
+                c.SwaggerDoc("v1", new OpenApiInfo
                 {
-                    var logger = ContextExtensions.GetLogger(context);
-                    logger?.LogWarning("Retry {RetryCount} after {Delay}ms",
-                        retryCount, timespan.TotalMilliseconds);
-                }));
-
-        builder.Services.AddHttpClient<ICreditScoringServiceClient, CreditScoringServiceClient>(client =>
-        {
-            client.BaseAddress = new Uri(builder.Configuration["CreditScoringApi:BaseUrl"] ?? "https://api.example.com");
-            client.DefaultRequestHeaders.Add("Accept", "application/json");
-        });
-
-
-        var app = builder.Build();
-
-        // Ensure Service Bus infrastructure exists
-        using (var scope = app.Services.CreateScope())
-        {
-            var admin = scope.ServiceProvider.GetRequiredService<ServiceBusAdministration>();
-            await admin.EnsureInfrastructureExistsAsync();
-        }
-
-        // ------------------- PIPELINE -------------------
-
-        app.UseHttpsRedirection();
-
-        app.UseStaticFiles(); // Enables wwwroot
-
-        if (app.Environment.IsDevelopment())
-        {
-            app.UseSwagger(options => options.OpenApiVersion = Microsoft.OpenApi.OpenApiSpecVersion.OpenApi2_0);
-            app.UseSwaggerUI(c =>
-            {
-                c.SwaggerEndpoint("/swagger/v1/swagger.json", "CoreBanking API v1");
-                c.RoutePrefix = "swagger";
+                    Title = "CoreBanking API",
+                    Version = "v1",
+                    Description = "A modern banking API built with Clean Architecture, DDD, and CQRS"
+                });
             });
 
-            app.MapGrpcReflectionService();
+            // =====================================================================
+            // KESTREL (HTTP/1.1 + HTTP/2)
+            // =====================================================================
+            builder.WebHost.ConfigureKestrel(options =>
+            {
+                options.ListenLocalhost(5037, o => o.Protocols = HttpProtocols.Http1);
+                options.ListenLocalhost(7288, o =>
+                {
+                    o.UseHttps();
+                    o.Protocols = HttpProtocols.Http2;
+                });
+            });
+
+            // =====================================================================
+            // APP PIPELINE
+            // =====================================================================
+            var app = builder.Build();
+
+            app.UseHttpsRedirection();
+            app.UseStaticFiles();
+            app.UseAuthorization();
+            app.UseMiddleware<GlobalExceptionHandlerMiddleware>();
+
+            if (app.Environment.IsDevelopment())
+            {
+                app.UseSwagger(options => options.OpenApiVersion = Microsoft.OpenApi.OpenApiSpecVersion.OpenApi2_0);
+                app.UseSwaggerUI(c =>
+                {
+                    c.SwaggerEndpoint("/swagger/v1/swagger.json", "CoreBanking API v1");
+                    c.RoutePrefix = "swagger";
+                });
+
+                app.MapGrpcReflectionService();
+            }
+
+            // Ensure mock-safe Service Bus setup
+            using (var scope = app.Services.CreateScope())
+            {
+                var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+                var admin = scope.ServiceProvider.GetRequiredService<ServiceBusAdministration>();
+
+                try
+                {
+                    await admin.EnsureInfrastructureExistsAsync();
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "[Startup] Skipping Service Bus setup (mock or offline).");
+                }
+            }
+
+            // =====================================================================
+            // ROUTING
+            // =====================================================================
+            app.MapControllers();
+            app.MapGrpcService<AccountGrpcService>();
+            app.MapGrpcService<EnhancedAccountGrpcService>();
+
+            app.MapHub<NotificationHub>("/hubs/notifications");
+            app.MapHub<EnhancedNotificationHub>("/hubs/enhanced-notifications");
+            app.MapHub<TransactionHub>("/hubs/transactions");
+
+            app.MapFallbackToFile("index.html");
+            app.MapGet("/", () => "CoreBanking API is running. Visit /swagger for REST or use a gRPC client.");
+
+            app.Run();
         }
-
-        app.UseAuthorization();
-
-        app.UseMiddleware<GlobalExceptionHandlerMiddleware>();
-
-        // ------------------- ROUTING -------------------
-
-        // REST API
-        app.MapControllers();
-
-        // gRPC endpoints
-        app.MapGrpcService<AccountGrpcService>();
-        app.MapGrpcService<EnhancedAccountGrpcService>();
-
-        // SignalR hub
-        app.MapHub<EnhancedNotificationHub>("/hubs/enhanced-notifications");
-        app.MapHub<NotificationHub>("/hubs/notifications");
-        app.MapHub<TransactionHub>("/hubs/transactions");
-
-        // Static file fallback (optional)
-        app.MapFallbackToFile("index.html");
-
-        // Root landing page
-        app.MapGet("/", () => "CoreBanking API is running. Visit /swagger for REST or use gRPC client.");
-
-        app.Run();
     }
 }
-
-

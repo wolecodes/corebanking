@@ -1,4 +1,4 @@
-using CoreBanking.Core.Interfaces;
+using CoreBanking.Core.ValueObjects;
 
 
 namespace CoreBanking.Core.Entities;
@@ -27,7 +27,7 @@ public class Customer : ISoftDelete
     private readonly List<Account> _accounts = new();
     public IReadOnlyCollection<Account> Accounts => _accounts.AsReadOnly();
 
-    public Customer(string firstName, string lastName, string email, string phoneNumber,  DateTime dateOfBirth, string bVN, int creditScore)
+    public Customer(string firstName, string lastName, string email, string phoneNumber, DateTime dateOfBirth, string bVN, int creditScore)
     {
         CustomerId = CustomerId.Create();
         FirstName = firstName ?? throw new ArgumentException(nameof(firstName));

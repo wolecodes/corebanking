@@ -1,12 +1,9 @@
-
 using CoreBanking.API.Extensions;
 using CoreBanking.API.gRPC;
-using CoreBanking.API.gRPC.Interceptors;
 using CoreBanking.API.gRPC.Mappings;
 using CoreBanking.API.Hubs;
 using CoreBanking.API.Hubs.EventHandlers;
 using CoreBanking.API.Hubs.Management;
-using CoreBanking.API.Mappings;
 using CoreBanking.API.Middleware;
 using CoreBanking.API.Services;
 using CoreBanking.APP.Accounts.Commands.CreateAccount;
@@ -16,7 +13,6 @@ using CoreBanking.APP.Common.Behaviors;
 using CoreBanking.APP.Common.Interfaces;
 using CoreBanking.APP.Common.Mappings;
 using CoreBanking.APP.Common.Models;
-using CoreBanking.APP.Customers.Commands.CreateCustomer;
 using CoreBanking.APP.External.HttpClients;
 using CoreBanking.APP.External.Interfaces;
 using CoreBanking.Core.Events;
@@ -25,6 +21,7 @@ using CoreBanking.Infrastructure.Data;
 using CoreBanking.Infrastructure.External.Resilience;
 using CoreBanking.Infrastructure.Repositories;
 using CoreBanking.Infrastructure.ServiceBus;
+using CoreBanking.Infrastructure.ServiceBus.Handlers;
 using CoreBanking.Infrastructure.Services;
 using FluentValidation;
 using MediatR;
@@ -162,6 +159,36 @@ public class Program
         // Add resilience services
         builder.Services.AddSingleton<IResilientHttpClientService, ResilientHttpClientService>();
 
+
+        builder.Services.Configure<ServiceBusConfiguration>(builder.Configuration.GetSection("ServiceBus"));
+
+        // Service Bus Infrastructure
+        builder.Services.AddSingleton<IServiceBusClientFactory>(provider =>
+        {
+            var config = provider.GetRequiredService<IOptions<ServiceBusConfiguration>>().Value;
+            var logger = provider.GetRequiredService<ILogger<ServiceBusClientFactory>>();
+            return new ServiceBusClientFactory(config.ConnectionString, logger);
+        });
+
+        builder.Services.AddSingleton<ServiceBusAdministration>(provider =>
+        {
+            var config = provider.GetRequiredService<IOptions<ServiceBusConfiguration>>().Value;
+            var logger = provider.GetRequiredService<ILogger<ServiceBusAdministration>>();
+            return new ServiceBusAdministration(config.ConnectionString, config, logger);
+        });
+
+        builder.Services.AddSingleton<IEventPublisher, ServiceBusEventPublisher>();
+        builder.Services.AddScoped<IDomainEventDispatcher, ServiceBusEventDispatcher>();
+        builder.Services.AddSingleton<IDeadLetterQueueProcessor, DeadLetterQueueProcessor>();
+
+        // Message Handlers
+        builder.Services.AddSingleton<CustomerEventHandler>();
+        builder.Services.AddSingleton<TransactionEventHandler>();
+        builder.Services.AddSingleton<AccountEventHandler>();
+
+        // Background Services
+        builder.Services.AddHostedService<MessageProcessingService>();
+        builder.Services.AddHostedService<DeadLetterQueueMonitorService>();
         // Register Polly policies
         builder.Services.AddSingleton(HttpPolicyExtensions
             .HandleTransientHttpError()
@@ -184,6 +211,13 @@ public class Program
 
 
         var app = builder.Build();
+
+        // Ensure Service Bus infrastructure exists
+        using (var scope = app.Services.CreateScope())
+        {
+            var admin = scope.ServiceProvider.GetRequiredService<ServiceBusAdministration>();
+            await admin.EnsureInfrastructureExistsAsync();
+        }
 
         // ------------------- PIPELINE -------------------
 

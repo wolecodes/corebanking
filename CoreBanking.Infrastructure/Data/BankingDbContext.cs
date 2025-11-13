@@ -118,6 +118,7 @@ public class BankingDbContext : DbContext
             entity.Property(t => t.Description).HasMaxLength(500);
             entity.Property(t => t.Reference).HasMaxLength(50);
             entity.Property(t => t.Timestamp).IsRequired();
+
         });
 
         // Global query filter in DbContext - Automatically Exclude Deleted Records

@@ -4,7 +4,7 @@ namespace CoreBanking.Core.ValueObjects
 {
     public class Money
     {
-        public decimal Amount { get; }  // ✅ Renamed from Account to Amount
+        public decimal Amount { get; }  // Renamed from Account to Amount
         public string Currency { get; } = "USD";
 
         public Money(decimal amount, string currency = "USD")

@@ -1,4 +1,3 @@
-using System;
 using CoreBanking.APP.Common.Models;
 using MediatR;
 

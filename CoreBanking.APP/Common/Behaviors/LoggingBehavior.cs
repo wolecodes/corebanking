@@ -18,7 +18,7 @@ public class LoggingBehaviour<TRequest, TResponse> : IPipelineBehavior<TRequest,
         var timer = System.Diagnostics.Stopwatch.StartNew();
         var response = await next();
         timer.Stop();
-        _logger.LogInformation("Command {CommandNam} hadnled in {ElapsedMilliseconds}ms", requestname, timer.ElapsedMilliseconds);
+        _logger.LogInformation("Command {CommandName} handled in {ElapsedMilliseconds}ms", requestname, timer.ElapsedMilliseconds);
         return response;
     }
 }

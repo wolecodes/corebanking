@@ -4,8 +4,7 @@ using CoreBanking.APP.Common.Interfaces;
 
 namespace CoreBanking.APP.Common.Behaviors;
 
-public class DomainEventsBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse>
-     where TRequest : IRequest<TResponse>
+public class DomainEventsBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse> where TRequest : IRequest<TResponse>
 {
 
   private readonly IDomainEventDispatcher _dispatcher;

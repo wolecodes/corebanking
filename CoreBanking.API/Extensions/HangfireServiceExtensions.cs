@@ -19,11 +19,13 @@ public static class HangfireServiceExtensions
     services.AddSingleton<LogJobFilter>();
 
     // Use the overload that provides IServiceProvider
+
+
     services.AddHangfire((provider, config) => config
         .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
         .UseSimpleAssemblyNameTypeSerializer()
         .UseRecommendedSerializerSettings()
-        .UseSqlServerStorage(hangfireConfig.ConnectionString, new SqlServerStorageOptions
+        .UseSqlServerStorage(hangfireConfig!.ConnectionString, new SqlServerStorageOptions
         {
           CommandBatchMaxTimeout = TimeSpan.FromMinutes(5),
           SlidingInvisibilityTimeout = TimeSpan.FromMinutes(5),
@@ -38,7 +40,7 @@ public static class HangfireServiceExtensions
     // Add Hangfire background processing
     services.AddHangfireServer(options =>
     {
-      options.WorkerCount = hangfireConfig.WorkerCount;
+      options.WorkerCount = hangfireConfig!.WorkerCount;
       options.Queues = new[] { "default", "critical", "low" };
       options.ServerName = $"CoreBanking-{Environment.MachineName}";
     });

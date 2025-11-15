@@ -2,7 +2,7 @@ using CoreBanking.Core.Events;
 
 namespace CoreBanking.Core.Common;
 
-public abstract class AggregateRoot<TId> where TId : notnull  
+public abstract class AggregateRoot<TId> where TId : notnull
 {
   private readonly List<DomainEvent> _domainEvents = new();
 

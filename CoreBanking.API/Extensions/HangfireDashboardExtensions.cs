@@ -29,7 +29,7 @@ public class HangfireAuthorizationFilter : IDashboardAuthorizationFilter
     var httpContext = context.GetHttpContext();
 
     // Only allow authenticated users with admin role
-    return httpContext.User.Identity.IsAuthenticated &&
+    return httpContext.User.Identity!.IsAuthenticated &&
         httpContext.User.IsInRole("Admin");
   }
 }

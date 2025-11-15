@@ -19,7 +19,7 @@ public class Transaction
     public bool IsArchived { get; private set; } = false;
 
 
-    private Transaction() { }
+    private Transaction() { }//Ef Core
     public Transaction(AccountId accountId, Account account, TransactionType type, Money amount, string description, string reference = "")
     {
         TransactionId = TransactionId.Create();
@@ -35,7 +35,7 @@ public class Transaction
         if (interestAmount <= 0)
             throw new ArgumentException("Interest amount must be positive.", nameof(interestAmount));
         var amount = new Money(interestAmount);
-        return new Transaction(accountId, null, TransactionType.Interest, amount, description);
+        return new Transaction(accountId, null!, TransactionType.Interest, amount, description);
     }
     private string GenerateReference()
     {

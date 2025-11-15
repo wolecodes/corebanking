@@ -1,7 +1,6 @@
 # Comprehensive CoreBanking Architecture Guide
 
 ## Table of Contents
-
 1. [EXPLAIN LIKE I'M 5 - DDD Concepts Made Simple](#explain-like-im-5---ddd-concepts-made-simple)
 2. [Executive Summary](#executive-summary)
 3. [Project Structure](#project-structure)
@@ -32,7 +31,6 @@ Imagine you have a **toy box** (your software system). Let's understand each con
 An Entity is something that has its own **identity** - like YOUR teddy bear that has your name on it.
 
 **Real Life Example:**
-
 ```
 You have a teddy bear named "Mr. Fluffy"
 Your friend has a teddy bear that looks EXACTLY the same
@@ -44,7 +42,6 @@ The NAME TAG (identity) makes him unique.
 ```
 
 **In Your Code:**
-
 ```csharp
 public class Account  // This is an ENTITY
 {
@@ -56,13 +53,11 @@ public class Account  // This is an ENTITY
 
 **How to Identify an Entity:**
 Ask: "If two things have the same properties, are they the same thing?"
-
 - If NO → It's an Entity (needs identity)
 - Two bank accounts with same balance are NOT the same account
 - Two customers with same name are NOT the same customer
 
 **Your Entities:**
-
 - `Account` - Each account has unique AccountId
 - `Customer` - Each customer has unique CustomerId
 - `Transaction` - Each transaction has unique TransactionId
@@ -75,7 +70,6 @@ Ask: "If two things have the same properties, are they the same thing?"
 A Value Object is something where we only care about **what it is**, not **which specific one** it is.
 
 **Real Life Example:**
-
 ```
 You have a RED crayon.
 Your friend has a RED crayon.
@@ -89,7 +83,6 @@ You don't fix it or track it - you just replace it.
 ```
 
 **In Your Code:**
-
 ```csharp
 public record Money  // This is a VALUE OBJECT
 {
@@ -105,20 +98,17 @@ var money2 = new Money(100, "NGN");
 
 **How to Identify a Value Object:**
 Ask: "If two things have the same values, are they interchangeable?"
-
 - If YES → It's a Value Object
 - $100 is $100, doesn't matter which specific bill
 - "123 Main Street" is the same address regardless of when you wrote it
 
 **Your Value Objects:**
-
 - `Money` - 100 NGN = 100 NGN (we care about amount, not which specific money)
 - `AccountId` - Just wraps a GUID (the value matters, not identity of wrapper)
 - `AccountNumber` - "1234567890" is just a string value
 - `CustomerId` - Just wraps a GUID
 
 **Key Difference:**
-
 ```
 ENTITY (Account):
   Account #1: Balance = 1000 NGN
@@ -139,7 +129,6 @@ VALUE OBJECT (Money):
 An Aggregate is a **group of things that belong together** and have ONE boss (the Aggregate Root).
 
 **Real Life Example:**
-
 ```
 You have a LEGO HOUSE set:
 ┌─────────────────────────┐
@@ -164,7 +153,6 @@ Rules:
 ```
 
 **In Your Code:**
-
 ```csharp
 public class Account : AggregateRoot<AccountId>  // Account is the BOSS
 {
@@ -213,7 +201,6 @@ Rules:
 ```
 
 **Aggregate Root = The Boss**
-
 - Only ONE door into the aggregate (the root)
 - All rules enforced by the root
 - Outside world talks to root, not children
@@ -226,7 +213,6 @@ Rules:
 A Domain Event is an **announcement** that something important happened. Past tense!
 
 **Real Life Example:**
-
 ```
 Newspaper Headlines (Domain Events):
 
@@ -250,7 +236,6 @@ When you SHOUT the news:
 ```
 
 **In Your Code:**
-
 ```csharp
 // The announcement (Event)
 public record AccountCreatedEvent(
@@ -292,13 +277,11 @@ public class AccountCreatedEventHandler : INotificationHandler<AccountCreatedEve
 
 **How to Identify a Domain Event:**
 Ask: "Did something important just happen that others might care about?"
-
 - Past tense (happened, not happening)
 - Business cares about it
 - Other parts of system might react
 
 **Your Domain Events:**
-
 - `AccountCreatedEvent` - "An account WAS created"
 - `MoneyTransferedEvent` - "Money WAS transferred"
 - `InsufficientFundEvent` - "A transfer WAS rejected"
@@ -311,7 +294,6 @@ Ask: "Did something important just happen that others might care about?"
 A Repository is like a **librarian** who finds and stores things for you.
 
 **Real Life Example:**
-
 ```
 You want a book from the library:
 
@@ -332,7 +314,6 @@ LIBRARIAN: "I'll put it back"
 ```
 
 **In Your Code:**
-
 ```csharp
 public interface IAccountRepository  // Contract with librarian
 {
@@ -358,7 +339,6 @@ public class CreateAccountCommandHandler
 ```
 
 **Why Repository?**
-
 - You don't know/care about database details
 - Tomorrow you could change from SQL Server to MongoDB
 - Your code stays the same!
@@ -371,7 +351,6 @@ public class CreateAccountCommandHandler
 The Aggregate Root is the **ONE person** who speaks for the whole group.
 
 **Real Life Example:**
-
 ```
 The Johnson Family:
 ┌─────────────────────────┐
@@ -399,7 +378,6 @@ Rules:
 ```
 
 **In Your Code:**
-
 ```csharp
 // WRONG - Talking directly to child
 transaction.Amount = 500;  // NO! Don't modify transaction directly!
@@ -417,7 +395,6 @@ account.Transfer(money, destination);  // YES! Ask account to do it!
 Your code organized in **layers**, like an onion. Inner layers don't know about outer layers.
 
 **Real Life Example:**
-
 ```
                     🧅 THE ONION 🧅
 
@@ -445,7 +422,6 @@ Your code organized in **layers**, like an onion. Inner layers don't know about 
 ```
 
 **Your Code:**
-
 ```
 CoreBanking.Core (Center - Domain)
 ├─ Knows: NOTHING about outside world
@@ -469,7 +445,6 @@ CoreBanking.API (Outer - Presentation)
 ```
 
 **Why This Structure?**
-
 - Domain (Account) doesn't know about SQL Server
 - If you change database, Domain code stays same
 - Business rules protected in the center
@@ -483,7 +458,6 @@ CoreBanking.API (Outer - Presentation)
 **C**ommand **Q**uery **R**esponsibility **S**egregation = Separate paths for reading and writing.
 
 **Real Life Example:**
-
 ```
 At the grocery store:
 
@@ -505,7 +479,6 @@ PRICE CHECK LINE (Query - Just looking):
 ```
 
 **In Your Code:**
-
 ```csharp
 // COMMAND (Changes state)
 public record TransferMoneyCommand(
@@ -521,7 +494,6 @@ public record GetAccountDetailsQuery(
 ```
 
 **Why Separate?**
-
 - Queries are simple and fast
 - Commands have business rules
 - Can optimize each separately
@@ -535,7 +507,6 @@ public record GetAccountDetailsQuery(
 The Mediator is the **middleman** who passes messages. Students don't talk directly to each other.
 
 **Real Life Example:**
-
 ```
 WITHOUT Teacher (Mediator):
 ┌─────┐    ┌─────┐    ┌─────┐
@@ -568,7 +539,6 @@ Kid C answers through Teacher
 ```
 
 **In Your Code:**
-
 ```csharp
 // WITHOUT MediatR
 public class AccountsController
@@ -601,7 +571,6 @@ public class AccountsController
 Unit of Work is like clicking **SAVE** - all your changes are saved together, or none are saved.
 
 **Real Life Example:**
-
 ```
 You're editing a Word document:
 
@@ -619,7 +588,6 @@ Then you click SAVE:
 ```
 
 **In Your Code:**
-
 ```csharp
 public class TransferMoneyCommandHandler
 {
@@ -703,23 +671,24 @@ public class TransferMoneyCommandHandler
 
 ### Quick Reference Card
 
-| Concept            | Simple Analogy      | Your Code Example             | Key Question to Identify                |
-| ------------------ | ------------------- | ----------------------------- | --------------------------------------- |
-| **Entity**         | Toy with name tag   | `Account`, `Customer`         | "Do I need to track THIS specific one?" |
-| **Value Object**   | A crayon color      | `Money`, `AccountId`          | "Do I only care about the value?"       |
-| **Aggregate**      | LEGO set in box     | `Account` with `Transactions` | "What must change together?"            |
-| **Aggregate Root** | Family spokesperson | `Account` class               | "Who's the boss of this group?"         |
-| **Domain Event**   | Newspaper headline  | `AccountCreatedEvent`         | "Did something important happen?"       |
-| **Repository**     | Librarian           | `IAccountRepository`          | "Where do I store/find things?"         |
-| **Unit of Work**   | Save button         | `IUnitOfWork`                 | "When do all changes commit?"           |
-| **Command**        | "Do this!"          | `CreateAccountCommand`        | "Does this change something?"           |
-| **Query**          | "Tell me about..."  | `GetAccountDetailsQuery`      | "Does this just read data?"             |
-| **Mediator**       | Teacher in class    | `IMediator`                   | "Who routes my request?"                |
+| Concept | Simple Analogy | Your Code Example | Key Question to Identify |
+|---------|---------------|-------------------|-------------------------|
+| **Entity** | Toy with name tag | `Account`, `Customer` | "Do I need to track THIS specific one?" |
+| **Value Object** | A crayon color | `Money`, `AccountId` | "Do I only care about the value?" |
+| **Aggregate** | LEGO set in box | `Account` with `Transactions` | "What must change together?" |
+| **Aggregate Root** | Family spokesperson | `Account` class | "Who's the boss of this group?" |
+| **Domain Event** | Newspaper headline | `AccountCreatedEvent` | "Did something important happen?" |
+| **Repository** | Librarian | `IAccountRepository` | "Where do I store/find things?" |
+| **Unit of Work** | Save button | `IUnitOfWork` | "When do all changes commit?" |
+| **Command** | "Do this!" | `CreateAccountCommand` | "Does this change something?" |
+| **Query** | "Tell me about..." | `GetAccountDetailsQuery` | "Does this just read data?" |
+| **Mediator** | Teacher in class | `IMediator` | "Who routes my request?" |
 
 ---
 
-This is a **production-ready banking system** built using:
 
+
+This is a **production-ready banking system** built using:
 - **Clean Architecture** - Separation of concerns into layers
 - **DDD (Domain-Driven Design)** - Rich domain model with business logic
 - **CQRS (Command Query Responsibility Segregation)** - Separate read/write paths
@@ -818,7 +787,6 @@ CoreBanking/
 ### 1. Entities (Objects with Identity)
 
 **Account.cs** - The main aggregate root
-
 ```csharp
 public class Account : AggregateRoot<AccountId>
 {
@@ -915,7 +883,6 @@ public class Account : AggregateRoot<AccountId>
 ```
 
 **Line-by-Line Explanation:**
-
 - **Line 1**: Inherits from `AggregateRoot<AccountId>` - this is the root of the aggregate
 - **Lines 3-6**: Private fields ensure encapsulation - no external modification
 - **Line 9**: Factory method (`Create`) - only way to create an account
@@ -933,7 +900,6 @@ public class Account : AggregateRoot<AccountId>
 ### 2. Value Objects (Objects without Identity)
 
 **Money.cs** - Immutable value object
-
 ```csharp
 public record Money
 {
@@ -972,7 +938,6 @@ public record Money
 ```
 
 **Why Value Objects?**
-
 - **Immutability** - Can't be changed after creation (thread-safe)
 - **Self-validation** - Always in valid state
 - **Equality by value** - Two Money objects with same amount/currency are equal
@@ -981,7 +946,6 @@ public record Money
 ### 3. Domain Events (What Happened)
 
 **AccountCreatedEvent.cs**
-
 ```csharp
 public record AccountCreatedEvent(
     AccountId AccountId,
@@ -993,7 +957,6 @@ public record AccountCreatedEvent(
 ```
 
 **MoneyTransferedEvent.cs**
-
 ```csharp
 public record MoneyTransferedEvent(
     TransactionId TransactionId,
@@ -1005,7 +968,6 @@ public record MoneyTransferedEvent(
 ```
 
 **Why Domain Events?**
-
 - **Decoupling** - Account doesn't know who cares about the transfer
 - **Audit trail** - Record of what happened
 - **Extensibility** - Add new handlers without changing domain
@@ -1014,7 +976,6 @@ public record MoneyTransferedEvent(
 ### 4. Aggregate Root Base Class
 
 **AggregateRoot.cs**
-
 ```csharp
 public abstract class AggregateRoot<TId> : IAggregateRoot
 {
@@ -1036,7 +997,6 @@ public abstract class AggregateRoot<TId> : IAggregateRoot
 ```
 
 **Why Aggregate Roots?**
-
 - **Consistency boundary** - All changes go through the root
 - **Transaction boundary** - One aggregate = one transaction
 - **Event collection** - Gathers all events for publishing
@@ -1048,7 +1008,6 @@ public abstract class AggregateRoot<TId> : IAggregateRoot
 ### 1. Commands (Write Operations)
 
 **CreateAccountCommand.cs**
-
 ```csharp
 public record CreateAccountCommand(
     Guid CustomerId,
@@ -1059,7 +1018,6 @@ public record CreateAccountCommand(
 ```
 
 **CreateAccountCommandHandler.cs**
-
 ```csharp
 public class CreateAccountCommandHandler : IRequestHandler<CreateAccountCommand, Result<Guid>>
 {
@@ -1134,7 +1092,6 @@ public class CreateAccountCommandHandler : IRequestHandler<CreateAccountCommand,
 ```
 
 **Line-by-Line Explanation:**
-
 - **Lines 1-6**: Command is a simple record with data needed for operation
 - **Line 7**: `IRequest<Result<Guid>>` - MediatR interface, returns Result with account ID
 - **Lines 9-19**: Handler with dependencies injected via constructor
@@ -1149,13 +1106,11 @@ public class CreateAccountCommandHandler : IRequestHandler<CreateAccountCommand,
 ### 2. Queries (Read Operations)
 
 **GetAccountDetailsQuery.cs**
-
 ```csharp
 public record GetAccountDetailsQuery(string AccountNumber) : IRequest<Result<AccountDetailsDto>>;
 ```
 
 **GetAccountDetailsQueryHandler.cs**
-
 ```csharp
 public class GetAccountDetailsQueryHandler
     : IRequestHandler<GetAccountDetailsQuery, Result<AccountDetailsDto>>
@@ -1188,7 +1143,6 @@ public class GetAccountDetailsQueryHandler
 ```
 
 **Why Separate Commands and Queries (CQRS)?**
-
 - **Different models** - Reads can be optimized separately from writes
 - **Scalability** - Can scale read/write databases independently
 - **Simplicity** - Each handler does one thing
@@ -1197,7 +1151,6 @@ public class GetAccountDetailsQueryHandler
 ### 3. Pipeline Behaviors (Cross-Cutting Concerns)
 
 **LoggingBehavior.cs** - Logs all commands/queries
-
 ```csharp
 public class LoggingBehaviour<TRequest, TResponse>
     : IPipelineBehavior<TRequest, TResponse>
@@ -1239,7 +1192,6 @@ public class LoggingBehaviour<TRequest, TResponse>
 ```
 
 **ValidationBehavior.cs** - Validates all requests
-
 ```csharp
 public class ValidationBehavior<TRequest, TResponse>
     : IPipelineBehavior<TRequest, TResponse>
@@ -1288,7 +1240,6 @@ public class ValidationBehavior<TRequest, TResponse>
 ```
 
 **DomainEventsBehavior.cs** - Dispatches domain events after handler completes
-
 ```csharp
 public class DomainEventsBehavior<TRequest, TResponse>
     : IPipelineBehavior<TRequest, TResponse>
@@ -1318,7 +1269,6 @@ public class DomainEventsBehavior<TRequest, TResponse>
 ```
 
 **Pipeline Execution Order:**
-
 ```
 Request comes in
     ↓
@@ -1340,7 +1290,6 @@ Response returned to caller
 ### 4. Event Handlers (React to Events)
 
 **AccountCreatedEventHandler.cs**
-
 ```csharp
 public class AccountCreatedEventHandler : INotificationHandler<AccountCreatedEvent>
 {
@@ -1361,7 +1310,6 @@ public class AccountCreatedEventHandler : INotificationHandler<AccountCreatedEve
 ```
 
 **RealTimeNotificationEventHandler.cs**
-
 ```csharp
 public class RealTimeNotificationEventHandler : INotificationHandler<MoneyTransferedEvent>
 {
@@ -1402,7 +1350,6 @@ public class RealTimeNotificationEventHandler : INotificationHandler<MoneyTransf
 ### 1. Entity Framework Core DbContext
 
 **BankingDbContext.cs**
-
 ```csharp
 public class BankingDbContext : DbContext
 {
@@ -1486,7 +1433,6 @@ public class BankingDbContext : DbContext
 ```
 
 **Key Concepts:**
-
 - **HasConversion** - Converts value objects to/from database types
 - **OwnsOne** - Maps value object as columns in same table
 - **HasQueryFilter** - Automatically filters soft-deleted records
@@ -1496,7 +1442,6 @@ public class BankingDbContext : DbContext
 ### 2. Repository Pattern
 
 **AccountRepository.cs**
-
 ```csharp
 public class AccountRepository : IAccountRepository
 {
@@ -1555,7 +1500,6 @@ public class AccountRepository : IAccountRepository
 ```
 
 **Why Repository Pattern?**
-
 - **Abstraction** - Domain doesn't know about EF Core
 - **Testability** - Can mock repository in tests
 - **Single Responsibility** - Repository only handles data access
@@ -1564,7 +1508,6 @@ public class AccountRepository : IAccountRepository
 ### 3. Unit of Work Pattern
 
 **UnitOfWork.cs**
-
 ```csharp
 public class UnitOfWork : IUnitOfWork
 {
@@ -1583,7 +1526,6 @@ public class UnitOfWork : IUnitOfWork
 ```
 
 **Why Unit of Work?**
-
 - **Transaction boundary** - All changes saved together
 - **Atomic operations** - Either all succeed or all fail
 - **Separation** - Repository adds to tracker, UoW saves
@@ -1591,7 +1533,6 @@ public class UnitOfWork : IUnitOfWork
 ### 4. Outbox Pattern (Reliable Event Publishing)
 
 **OutboxMessage.cs**
-
 ```csharp
 public class OutboxMessage
 {
@@ -1606,7 +1547,6 @@ public class OutboxMessage
 ```
 
 **OutboxMessageProcessor.cs**
-
 ```csharp
 public class OutboxMessageProcessor : IOutboxMessageProcessor
 {
@@ -1650,7 +1590,6 @@ public class OutboxMessageProcessor : IOutboxMessageProcessor
 ```
 
 **Why Outbox Pattern?**
-
 - **Reliability** - Events stored in same transaction as data
 - **Consistency** - No lost events if service bus is down
 - **Retry mechanism** - Failed publishes retry automatically
@@ -1659,7 +1598,6 @@ public class OutboxMessageProcessor : IOutboxMessageProcessor
 ### 5. Service Bus Integration
 
 **ServiceBusEventPublisher.cs**
-
 ```csharp
 public class ServiceBusEventPublisher : IEventPublisher
 {
@@ -1704,7 +1642,6 @@ public class ServiceBusEventPublisher : IEventPublisher
 ### 1. REST Controllers
 
 **AccountsController.cs**
-
 ```csharp
 [ApiController]
 [Route("api/[controller]")]
@@ -1770,7 +1707,6 @@ public class AccountsController : ControllerBase
 ```
 
 **Controller Responsibilities:**
-
 - Receive HTTP requests
 - Map to commands/queries
 - Send to MediatR
@@ -1780,7 +1716,6 @@ public class AccountsController : ControllerBase
 ### 2. SignalR Hubs (Real-Time Communication)
 
 **NotificationHub.cs**
-
 ```csharp
 public class NotificationHub : Hub
 {
@@ -1821,7 +1756,6 @@ public class NotificationHub : Hub
 ```
 
 **SignalR Concepts:**
-
 - **Hub** - Server-side endpoint for real-time communication
 - **Groups** - Logical grouping of connections
 - **Context.ConnectionId** - Unique identifier for each connection
@@ -1830,7 +1764,6 @@ public class NotificationHub : Hub
 ### 3. Global Exception Handler Middleware
 
 **GlobalExceptionHandlerMiddleware.cs**
-
 ```csharp
 public class GlobalExceptionHandlerMiddleware
 {
@@ -1890,7 +1823,6 @@ public class GlobalExceptionHandlerMiddleware
 ```
 
 **Why Middleware?**
-
 - **Centralized error handling** - One place for all exceptions
 - **Consistent responses** - All errors follow same format
 - **Cross-cutting concern** - Applied to all requests
@@ -1917,7 +1849,6 @@ builder.Services.AddTransient<INotificationHandler<AccountCreatedEvent>, Account
 Dependency Injection is a design pattern where objects receive their dependencies from external sources rather than creating them internally.
 
 **Without DI:**
-
 ```csharp
 public class AccountsController
 {
@@ -1935,7 +1866,6 @@ public class AccountsController
 ```
 
 **With DI:**
-
 ```csharp
 public class AccountsController
 {
@@ -1950,7 +1880,6 @@ public class AccountsController
 ```
 
 **Why DI?**
-
 1. **Loose coupling** - Controller doesn't know about AccountRepository implementation
 2. **Testability** - Can inject mock repository for testing
 3. **Maintainability** - Change implementation without modifying consumers
@@ -1974,7 +1903,6 @@ builder.Services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBeh
 ```
 
 **Scoped Lifetime:**
-
 ```
 HTTP Request 1:                    HTTP Request 2:
 ┌─────────────────┐               ┌─────────────────┐
@@ -1986,12 +1914,10 @@ HTTP Request 1:                    HTTP Request 2:
 │ (same instance) │               │ (same instance) │
 └─────────────────┘               └─────────────────┘
 ```
-
 - **Use for**: Database contexts, repositories, unit of work
 - **Why**: Each request gets fresh state, disposed at end of request
 
 **Singleton Lifetime:**
-
 ```
 Application Lifetime:
 ┌─────────────────────────────────────┐
@@ -1999,12 +1925,10 @@ Application Lifetime:
 │  (shared by all requests/threads)   │
 └─────────────────────────────────────┘
 ```
-
 - **Use for**: Connection factories, caches, configuration
 - **Why**: Expensive to create, stateless or thread-safe state
 
 **Transient Lifetime:**
-
 ```
 Request 1:                         Request 2:
 ┌─────────────────┐               ┌─────────────────┐
@@ -2015,7 +1939,6 @@ Request 1:                         Request 2:
 │ gets Handler #2 │               │ gets Handler #4 │
 └─────────────────┘               └─────────────────┘
 ```
-
 - **Use for**: Lightweight, stateless services, event handlers
 - **Why**: No shared state, fresh instance each time
 
@@ -2191,7 +2114,6 @@ app.Run();
 ### 4. Routing in ASP.NET Core
 
 **Attribute Routing:**
-
 ```csharp
 [ApiController]
 [Route("api/[controller]")]  // Base route: /api/accounts
@@ -2212,14 +2134,12 @@ public class AccountsController : ControllerBase
 ```
 
 **Route Tokens:**
-
 - `[controller]` - Replaced with controller name (minus "Controller" suffix)
 - `{accountNumber}` - Route parameter (captured from URL)
 - `[FromBody]` - Deserialize request body to object
 - `[FromQuery]` - Get from query string (?key=value)
 
 **HTTP Methods:**
-
 - `GET` - Retrieve data (safe, idempotent)
 - `POST` - Create new resource
 - `PUT` - Update entire resource
@@ -2248,7 +2168,6 @@ builder.Configuration["SomeKey"];
 ```
 
 **Configuration Priority (highest to lowest):**
-
 1. Command-line arguments
 2. Environment variables
 3. User secrets (development only)
@@ -2265,7 +2184,6 @@ builder.Configuration["SomeKey"];
 MediatR is an implementation of the Mediator pattern - it decouples the sender of a request from its handler.
 
 **Without MediatR:**
-
 ```csharp
 public class AccountsController
 {
@@ -2279,11 +2197,9 @@ public class AccountsController
     }
 }
 ```
-
 Controller knows about all handlers - tight coupling!
 
 **With MediatR:**
-
 ```csharp
 public class AccountsController
 {
@@ -2295,11 +2211,9 @@ public class AccountsController
     }
 }
 ```
-
 Controller only knows about IMediator - loose coupling!
 
 **MediatR Flow:**
-
 ```
 Command → IMediator.Send() →
   Pipeline Behaviors (Validation, Logging, etc.) →
@@ -2312,21 +2226,18 @@ Command → IMediator.Send() →
 Separate the read model (queries) from the write model (commands).
 
 **Commands (Write):**
-
 - Change state
 - Return success/failure
 - Validate business rules
 - Go through domain model
 
 **Queries (Read):**
-
 - Don't change state
 - Return data
 - Can bypass domain model
 - Optimize for read performance
 
 **Example in your code:**
-
 ```
 Commands:                          Queries:
 CreateAccountCommand      →        GetAccountDetailsQuery
@@ -2335,7 +2246,6 @@ CreateCustomerCommand     →        GetTransactionHistoryQuery
 ```
 
 **Why CQRS?**
-
 1. **Separation of concerns** - Read/write logic separated
 2. **Scalability** - Scale reads and writes independently
 3. **Performance** - Optimize each path separately
@@ -2347,13 +2257,11 @@ CreateCustomerCommand     →        GetTransactionHistoryQuery
 A record of something that happened in the domain.
 
 **Pattern:**
-
 ```
 Entity does something → Raises event → Handlers react
 ```
 
 **Your Implementation:**
-
 ```csharp
 // In Account.Create():
 AddDomainEvent(new AccountCreatedEvent(...));
@@ -2371,7 +2279,6 @@ OutboxMessageProcessor → Service Bus publish
 ```
 
 **Why Domain Events?**
-
 1. **Decoupling** - Entity doesn't know about handlers
 2. **Extensibility** - Add handlers without changing entity
 3. **Audit trail** - Record of what happened
@@ -2381,14 +2288,12 @@ OutboxMessageProcessor → Service Bus publish
 
 **Problem:**
 You need to:
-
 1. Save data to database
 2. Publish event to message queue
 
 What if step 2 fails? Data is saved but event is lost!
 
 **Solution: Outbox Pattern**
-
 ```
 1. Save data to database
 2. Save event to OutboxMessages table (same transaction)
@@ -2398,7 +2303,6 @@ What if step 2 fails? Data is saved but event is lost!
 ```
 
 **Why?**
-
 - **Reliability** - Events never lost
 - **Consistency** - Event saved with data atomically
 - **Retry** - Failed publishes retry automatically
@@ -2409,7 +2313,6 @@ What if step 2 fails? Data is saved but event is lost!
 An abstraction over data access.
 
 **Without Repository:**
-
 ```csharp
 public class CreateAccountCommandHandler
 {
@@ -2423,11 +2326,9 @@ public class CreateAccountCommandHandler
     }
 }
 ```
-
 Handler knows about EF Core - coupled to infrastructure!
 
 **With Repository:**
-
 ```csharp
 public class CreateAccountCommandHandler
 {
@@ -2443,11 +2344,9 @@ public class CreateAccountCommandHandler
     }
 }
 ```
-
 Handler only knows about abstractions!
 
 **Why Repository?**
-
 1. **Abstraction** - Hide data access details
 2. **Testability** - Mock repositories in tests
 3. **Query encapsulation** - Complex queries hidden
@@ -2941,590 +2840,9 @@ Handler only knows about abstractions!
 
 ---
 
-## How to Identify What's What When Designing
+## Summary
 
-This is the **decision-making guide** for when you're creating a new system. Use these flowcharts and questions!
-
-### Step-by-Step Design Process
-
-#### 1. Identifying Entities vs Value Objects
-
-```
-START: You have a concept in your system (e.g., "Money", "Address", "Order")
-  │
-  ▼
-QUESTION 1: Does this thing need to be tracked individually over time?
-  │
-  ├─ YES → Does it change over its lifetime?
-  │         │
-  │         ├─ YES → ENTITY ✓
-  │         │         Examples: Customer (can change address, but still same customer)
-  │         │                   Order (status changes, but still same order)
-  │         │                   Account (balance changes, but still same account)
-  │         │
-  │         └─ NO → Still probably ENTITY ✓
-  │                   Example: Transaction (immutable but tracked individually)
-  │
-  └─ NO → QUESTION 2: If two instances have same values, are they equal?
-           │
-           ├─ YES → VALUE OBJECT ✓
-           │         Examples: Money(100, "USD") == Money(100, "USD")
-           │                   Address("123 Main St") == Address("123 Main St")
-           │                   DateRange(Jan 1 - Jan 31) == DateRange(Jan 1 - Jan 31)
-           │
-           └─ NO → Probably ENTITY ✓
-```
-
-**Real Examples from Your Banking System:**
-
-| Concept       | Entity or Value Object? | Why?                                               |
-| ------------- | ----------------------- | -------------------------------------------------- |
-| Account       | **ENTITY**              | Each account tracked separately, changes over time |
-| Customer      | **ENTITY**              | Each customer unique, tracked individually         |
-| Transaction   | **ENTITY**              | Each transaction is unique record                  |
-| Money         | **VALUE OBJECT**        | 100 NGN = 100 NGN, we just care about amount       |
-| AccountNumber | **VALUE OBJECT**        | Just a string value, no lifecycle                  |
-| Address       | **VALUE OBJECT**        | Same address text = same address                   |
-| Email         | **VALUE OBJECT**        | Just a validated string                            |
-
-**Practice Exercise:**
-
-```
-You're building an E-commerce system. Classify these:
-
-1. Product - ENTITY or VALUE OBJECT?
-   Answer: ENTITY (each product tracked, has inventory)
-
-2. Price - ENTITY or VALUE OBJECT?
-   Answer: VALUE OBJECT ($19.99 = $19.99)
-
-3. ShoppingCart - ENTITY or VALUE OBJECT?
-   Answer: ENTITY (belongs to specific user, changes)
-
-4. CartItem - ENTITY or VALUE OBJECT?
-   Answer: ENTITY (quantity changes, but still same item in cart)
-
-5. Color - ENTITY or VALUE OBJECT?
-   Answer: VALUE OBJECT (Red = Red)
-
-6. Discount - ENTITY or VALUE OBJECT?
-   Answer: Could be ENTITY if tracked separately, or VALUE OBJECT if just a percentage
-```
-
----
-
-#### 2. Identifying Aggregates and Aggregate Roots
-
-```
-START: You have several related entities
-  │
-  ▼
-QUESTION 1: Do these entities MUST be modified together to maintain consistency?
-  │
-  ├─ YES → They form an AGGREGATE
-  │         │
-  │         ▼
-  │    QUESTION 2: Which entity is the "main" one that others belong to?
-  │         │
-  │         └─ That's your AGGREGATE ROOT ✓
-  │
-  └─ NO → They might be separate aggregates
-           │
-           ▼
-      QUESTION 3: Can this entity exist without the other?
-           │
-           ├─ YES → Separate aggregates
-           │
-           └─ NO → Part of same aggregate
-```
-
-**The Consistency Boundary Test:**
-
-Ask: "If I change entity A, do I ALWAYS need to check/update entity B?"
-
-```
-BANKING EXAMPLE:
-┌────────────────────────────────────────┐
-│ If I change Account balance...         │
-│   Do I need to update Transactions? YES│
-│   Do I need to update Customer? NO     │
-│                                         │
-│ Therefore:                              │
-│   Account + Transactions = ONE aggregate│
-│   Customer = SEPARATE aggregate         │
-└────────────────────────────────────────┘
-```
-
-**Aggregate Boundaries in Your Code:**
-
-```
-ACCOUNT AGGREGATE:
-┌─────────────────────────┐
-│ Account (ROOT)          │  ← Access point
-│   │                     │
-│   ├─ Balance            │  ← Part of aggregate
-│   ├─ Type               │  ← Part of aggregate
-│   ├─ Status             │  ← Part of aggregate
-│   └─ Transactions[]     │  ← Child entities
-│       ├─ Transaction 1  │
-│       ├─ Transaction 2  │
-│       └─ Transaction 3  │
-└─────────────────────────┘
-
-CUSTOMER AGGREGATE:
-┌─────────────────────────┐
-│ Customer (ROOT)         │  ← Access point
-│   │                     │
-│   ├─ Name               │
-│   ├─ Email              │
-│   ├─ BVN                │
-│   └─ CreditScore        │
-└─────────────────────────┘
-
-Note: Customer REFERENCES Account (not inside aggregate)
-      Account REFERENCES Customer via CustomerId
-```
-
-**Common Mistakes:**
-
-❌ **TOO BIG aggregate:**
-
-```
-Customer Aggregate:
-  └─ Customer
-       └─ Accounts[]
-            └─ Transactions[]
-                 └─ ...
-
-Problem: Loading customer loads ALL accounts and ALL transactions!
-```
-
-✅ **RIGHT SIZE aggregate:**
-
-```
-Customer Aggregate:
-  └─ Customer
-
-Account Aggregate:
-  └─ Account
-       └─ Transactions[]
-
-Connected by: Account.CustomerId (just a reference)
-```
-
-**Rule of Thumb:**
-
-- Keep aggregates SMALL
-- Only include what MUST be consistent
-- Reference other aggregates by ID
-
----
-
-#### 3. Identifying Domain Events
-
-```
-START: Something happened in your system
-  │
-  ▼
-QUESTION 1: Is this significant to the business?
-  │
-  ├─ NO → Not a domain event (maybe just logging)
-  │
-  └─ YES → QUESTION 2: Will other parts of the system care?
-            │
-            ├─ NO → Maybe not a domain event
-            │
-            └─ YES → QUESTION 3: Is it past tense (already happened)?
-                      │
-                      ├─ YES → DOMAIN EVENT ✓
-                      │
-                      └─ NO → Make it past tense, then it's an event
-```
-
-**Event Naming Convention:**
-
-```
-Good Event Names (Past Tense):
-✓ AccountCreated
-✓ MoneyTransferred
-✓ CustomerRegistered
-✓ OrderPlaced
-✓ PaymentReceived
-✓ PasswordChanged
-
-Bad Event Names:
-✗ CreateAccount (command, not event)
-✗ TransferMoney (command, not event)
-✗ AccountCreation (noun, not past tense)
-```
-
-**When to Raise Events:**
-
-```csharp
-// In your ENTITY or AGGREGATE ROOT
-public class Account : AggregateRoot<AccountId>
-{
-    public static Account Create(...)
-    {
-        var account = new Account(...);
-
-        // Something SIGNIFICANT happened → Raise event
-        account.AddDomainEvent(new AccountCreatedEvent(...));
-
-        return account;
-    }
-
-    public Result<Transaction> Transfer(Money amount, Account destination, ...)
-    {
-        if (Balance < amount)
-        {
-            // Something BAD happened → Raise event
-            AddDomainEvent(new InsufficientFundEvent(...));
-            return Result.Failure("Insufficient funds");
-        }
-
-        // Transfer logic...
-
-        // Something SIGNIFICANT happened → Raise event
-        AddDomainEvent(new MoneyTransferedEvent(...));
-
-        return Result.Success(transaction);
-    }
-
-    public void Deactivate()
-    {
-        IsActive = false;
-
-        // Something SIGNIFICANT happened → Raise event
-        AddDomainEvent(new AccountDeactivatedEvent(Id));
-    }
-}
-```
-
-**Events Your Banking System Could Have:**
-
-```
-Account Domain:
-- AccountCreatedEvent ✓ (you have this)
-- AccountClosedEvent
-- AccountSuspendedEvent
-- AccountReactivatedEvent
-- BalanceUpdatedEvent
-
-Transfer Domain:
-- MoneyTransferedEvent ✓ (you have this)
-- InsufficientFundEvent ✓ (you have this)
-- TransferReversedEvent
-- TransferFailedEvent
-
-Customer Domain:
-- CustomerRegisteredEvent
-- CustomerVerifiedEvent
-- CustomerBlockedEvent
-- CreditScoreChangedEvent
-```
-
----
-
-#### 4. Identifying Commands vs Queries
-
-```
-START: User wants to do something
-  │
-  ▼
-QUESTION: Does this action CHANGE data?
-  │
-  ├─ YES → COMMAND
-  │         │
-  │         └─ Examples:
-  │              CreateAccountCommand
-  │              TransferMoneyCommand
-  │              UpdateCustomerCommand
-  │              DeleteTransactionCommand
-  │              DepositMoneyCommand
-  │
-  └─ NO → QUERY
-           │
-           └─ Examples:
-                GetAccountDetailsQuery
-                GetTransactionHistoryQuery
-                GetCustomerBalanceQuery
-                SearchAccountsQuery
-                GetDailyReportQuery
-```
-
-**Naming Convention:**
-
-```
-Commands: {Verb}{Noun}Command
-  - CreateAccountCommand
-  - TransferMoneyCommand
-  - UpdateCustomerCommand
-  - CancelOrderCommand
-  - ApprovePaymentCommand
-
-Queries: Get{Noun/Adjective}Query
-  - GetAccountDetailsQuery
-  - GetActiveCustomersQuery
-  - GetTransactionHistoryQuery
-  - GetMonthlyReportQuery
-  - GetPendingOrdersQuery
-```
-
----
-
-#### 5. Designing a New Feature - Complete Workflow
-
-Let's say you need to add "Account Closure" feature:
-
-**Step 1: Identify the Domain Concept**
-
-```
-What is "Account Closure"?
-- It's an action on an Account (existing entity)
-- It changes state (IsActive → false)
-- It's significant (business cares)
-- Other parts care (notifications, reports)
-```
-
-**Step 2: Design the Command**
-
-```csharp
-// Command - What we want to do
-public record CloseAccountCommand(
-    string AccountNumber,
-    string Reason,
-    string ClosedBy
-) : IRequest<Result>;
-```
-
-**Step 3: Add Domain Logic to Aggregate Root**
-
-```csharp
-public class Account : AggregateRoot<AccountId>
-{
-    public Result Close(string reason, string closedBy)
-    {
-        // Business rule: Can't close if balance > 0
-        if (Balance.Amount > 0)
-            return Result.Failure("Account has remaining balance");
-
-        // Business rule: Can't close already closed account
-        if (!IsActive)
-            return Result.Failure("Account already closed");
-
-        // Make the change
-        IsActive = false;
-        ClosedDate = DateTime.UtcNow;
-        ClosureReason = reason;
-
-        // Raise domain event
-        AddDomainEvent(new AccountClosedEvent(
-            Id,
-            AccountNumber,
-            reason,
-            closedBy,
-            DateTime.UtcNow
-        ));
-
-        return Result.Success();
-    }
-}
-```
-
-**Step 4: Create the Domain Event**
-
-```csharp
-public record AccountClosedEvent(
-    AccountId AccountId,
-    AccountNumber AccountNumber,
-    string Reason,
-    string ClosedBy,
-    DateTime ClosedAt
-) : DomainEvent;
-```
-
-**Step 5: Create the Command Handler**
-
-```csharp
-public class CloseAccountCommandHandler : IRequestHandler<CloseAccountCommand, Result>
-{
-    private readonly IAccountRepository _accountRepository;
-    private readonly IUnitOfWork _unitOfWork;
-
-    public async Task<Result> Handle(
-        CloseAccountCommand request,
-        CancellationToken cancellationToken)
-    {
-        // 1. Get the aggregate
-        var account = await _accountRepository.GetByAccountNumberAsync(
-            new AccountNumber(request.AccountNumber), cancellationToken);
-
-        if (account is null)
-            return Result.Failure("Account not found");
-
-        // 2. Execute domain logic
-        var result = account.Close(request.Reason, request.ClosedBy);
-
-        if (!result.IsSuccess)
-            return result;
-
-        // 3. Persist changes
-        await _accountRepository.UpdateAsync(account, cancellationToken);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
-
-        return Result.Success();
-    }
-}
-```
-
-**Step 6: Create Event Handlers (React to Event)**
-
-```csharp
-public class AccountClosedEventHandler : INotificationHandler<AccountClosedEvent>
-{
-    public async Task Handle(AccountClosedEvent notification, ...)
-    {
-        // Send email notification
-        // Update reports
-        // Notify compliance
-        // Archive account data
-    }
-}
-```
-
-**Step 7: Add API Endpoint**
-
-```csharp
-[HttpPost("{accountNumber}/close")]
-public async Task<ActionResult<ApiResponse>> CloseAccount(
-    string accountNumber,
-    [FromBody] CloseAccountRequest request)
-{
-    var command = new CloseAccountCommand(
-        accountNumber,
-        request.Reason,
-        request.ClosedBy);
-
-    var result = await _mediator.Send(command);
-
-    if (!result.IsSuccess)
-        return BadRequest(ApiResponse.CreateFailure(result.Error));
-
-    return Ok(ApiResponse.CreateSuccess("Account closed successfully"));
-}
-```
-
----
-
-### Complete Decision Tree
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│              WHAT AM I DESIGNING?                           │
-└─────────────────────────┬───────────────────────────────────┘
-                          │
-        ┌─────────────────┼─────────────────┐
-        │                 │                 │
-        ▼                 ▼                 ▼
-   ┌─────────┐      ┌─────────┐      ┌─────────┐
-   │   DATA  │      │  ACTION │      │  EVENT  │
-   │ CONCEPT │      │         │      │         │
-   └────┬────┘      └────┬────┘      └────┬────┘
-        │                │                 │
-        ▼                ▼                 ▼
-   Identity?        Changes data?     Past tense?
-        │                │                 │
-   ┌────┴────┐      ┌────┴────┐      ┌────┴────┐
-   │         │      │         │      │         │
-  YES       NO     YES       NO     YES       NO
-   │         │      │         │      │         │
-   ▼         ▼      ▼         ▼      ▼         ▼
- ENTITY   VALUE   COMMAND   QUERY  DOMAIN   Not an
-         OBJECT                    EVENT    event
-
-        │
-        ▼
-  Part of group?
-        │
-   ┌────┴────┐
-   │         │
-  YES       NO
-   │         │
-   ▼         ▼
- Part of   Separate
-AGGREGATE  aggregate
-
-        │
-        ▼
-  Main entity?
-        │
-   ┌────┴────┐
-   │         │
-  YES       NO
-   │         │
-   ▼         ▼
-AGGREGATE  Child
-  ROOT     entity
-```
-
----
-
-### Practice: Design a "Loan Application" Feature
-
-Try to answer these:
-
-1. **Is "Loan" an Entity or Value Object?**
-
-   - Answer: ENTITY (each loan tracked individually, has lifecycle)
-
-2. **What's the Aggregate Root?**
-
-   - Answer: Loan (it's the main concept)
-
-3. **What child entities belong to Loan aggregate?**
-
-   - Answer: LoanPayments (must be consistent with loan balance)
-
-4. **What Value Objects does Loan have?**
-
-   - Answer: Money (loan amount), InterestRate (percentage)
-
-5. **What Commands would you create?**
-
-   - ApplyForLoanCommand
-   - ApproveLoanCommand
-   - DisburseLoanCommand
-   - RecordPaymentCommand
-
-6. **What Queries would you create?**
-
-   - GetLoanDetailsQuery
-   - GetPaymentHistoryQuery
-   - GetActiveLoanQuery
-
-7. **What Domain Events would you raise?**
-   - LoanAppliedEvent
-   - LoanApprovedEvent
-   - LoanDisbursedEvent
-   - LoanPaymentReceivedEvent
-   - LoanPaidOffEvent
-
----
-
-### Golden Rules Summary
-
-1. **Entity**: "Does it have a unique identity that persists over time?"
-2. **Value Object**: "Do I only care about the value, not which specific instance?"
-3. **Aggregate**: "What MUST change together to stay consistent?"
-4. **Aggregate Root**: "Who's the boss that controls access?"
-5. **Domain Event**: "Did something business-significant happen (past tense)?"
-6. **Command**: "Am I changing state?"
-7. **Query**: "Am I just reading data?"
-8. **Repository**: "How do I store/retrieve aggregates?"
-9. **Unit of Work**: "When do I commit all changes together?"
-
----
+### What You've Built
 
 A **production-grade banking system** that demonstrates:
 
@@ -3550,7 +2868,6 @@ A **production-grade banking system** that demonstrates:
 7. **CQRS** separates reads from writes for better scalability
 
 This architecture is used by major companies like:
-
 - **Netflix** - Event-driven microservices
 - **Amazon** - CQRS for scalability
 - **Uber** - Domain-driven design
